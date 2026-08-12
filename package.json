@@ -1,0 +1,103 @@
+{
+  "name": "@efa-one/sdk",
+  "version": "1.10.0",
+  "description": "Offizielles SDK für efa-one-Apps: Auth/Session, Service-Discovery, Gateway-Client, Audit/Reporting/Mail/Notifications, Permission- und Capability-Registrierung sowie das Frontend-IPC-/i18n-Toolkit.",
+  "license": "Apache-2.0",
+  "type": "commonjs",
+  "exports": {
+    "./backend": {
+      "types": "./dist/backend/index.d.ts",
+      "require": "./dist/backend/index.js",
+      "default": "./dist/backend/index.js"
+    },
+    "./backend/*": {
+      "types": "./dist/backend/*.d.ts",
+      "require": "./dist/backend/*.js",
+      "default": "./dist/backend/*.js"
+    },
+    "./frontend": {
+      "types": "./dist/frontend/index.d.ts",
+      "import": "./dist/frontend/index.js",
+      "default": "./dist/frontend/index.js"
+    },
+    "./frontend/*": {
+      "types": "./dist/frontend/*.d.ts",
+      "import": "./dist/frontend/*.js",
+      "default": "./dist/frontend/*.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "NOTICE"
+  ],
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build:backend": "tsc -p tsconfig.backend.json",
+    "build:frontend": "tsc -p tsconfig.frontend.json && node -e \"require('fs').writeFileSync('dist/frontend/package.json', JSON.stringify({type:'module'}))\"",
+    "build": "npm run clean && npm run build:backend && npm run build:frontend",
+    "typecheck": "tsc -p tsconfig.backend.json --noEmit && tsc -p tsconfig.frontend.json --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "express": ">=4",
+    "i18next": ">=23",
+    "i18next-http-backend": ">=2",
+    "jsonwebtoken": ">=9",
+    "pg": ">=8",
+    "react": ">=18",
+    "react-i18next": ">=13"
+  },
+  "peerDependenciesMeta": {
+    "express": {
+      "optional": true
+    },
+    "pg": {
+      "optional": true
+    },
+    "jsonwebtoken": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "i18next": {
+      "optional": true
+    },
+    "i18next-http-backend": {
+      "optional": true
+    },
+    "react-i18next": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/node": "^20.14.0",
+    "@types/pg": "^8.11.0",
+    "@types/react": "^18.2.46",
+    "express": "^4.19.2",
+    "i18next": "^23.11.0",
+    "i18next-http-backend": "^2.7.3",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.12.0",
+    "react": "^18.2.0",
+    "react-i18next": "^13.5.0",
+    "typescript": "7.0.2"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/convergeplattform/efa-sdk.git"
+  },
+  "homepage": "https://github.com/convergeplattform/efa-sdk#readme",
+  "bugs": {
+    "url": "https://github.com/convergeplattform/efa-sdk/issues"
+  }
+}
