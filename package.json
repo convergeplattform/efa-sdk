@@ -6,35 +6,36 @@
   "type": "commonjs",
   "exports": {
     "./backend": {
-      "types": "./dist/backend/index.d.ts",
-      "require": "./dist/backend/index.js",
-      "default": "./dist/backend/index.js"
+      "types": "./backend/index.d.ts",
+      "require": "./backend/index.js",
+      "default": "./backend/index.js"
     },
     "./backend/*": {
-      "types": "./dist/backend/*.d.ts",
-      "require": "./dist/backend/*.js",
-      "default": "./dist/backend/*.js"
+      "types": "./backend/*.d.ts",
+      "require": "./backend/*.js",
+      "default": "./backend/*.js"
     },
     "./frontend": {
-      "types": "./dist/frontend/index.d.ts",
-      "import": "./dist/frontend/index.js",
-      "default": "./dist/frontend/index.js"
+      "types": "./frontend/index.d.ts",
+      "import": "./frontend/index.js",
+      "default": "./frontend/index.js"
     },
     "./frontend/*": {
-      "types": "./dist/frontend/*.d.ts",
-      "import": "./dist/frontend/*.js",
-      "default": "./dist/frontend/*.js"
+      "types": "./frontend/*.d.ts",
+      "import": "./frontend/*.js",
+      "default": "./frontend/*.js"
     },
     "./package.json": "./package.json"
   },
   "files": [
-    "dist",
+    "backend",
+    "frontend",
     "NOTICE"
   ],
   "scripts": {
-    "clean": "rm -rf dist",
+    "clean": "rm -rf backend frontend",
     "build:backend": "tsc -p tsconfig.backend.json",
-    "build:frontend": "tsc -p tsconfig.frontend.json && node -e \"require('fs').writeFileSync('dist/frontend/package.json', JSON.stringify({type:'module'}))\"",
+    "build:frontend": "tsc -p tsconfig.frontend.json && node -e \"require('fs').writeFileSync('frontend/package.json', JSON.stringify({type:'module'}))\"",
     "build": "npm run clean && npm run build:backend && npm run build:frontend",
     "typecheck": "tsc -p tsconfig.backend.json --noEmit && tsc -p tsconfig.frontend.json --noEmit",
     "prepublishOnly": "npm run build"
