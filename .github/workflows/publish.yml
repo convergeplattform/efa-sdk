@@ -51,6 +51,10 @@ jobs:
       # den auf npmjs.com hinterlegten Trusted Publisher — KEIN NODE_AUTH_TOKEN nötig.
       # npm publish baut via prepublishOnly neu (backend/ + frontend/);
       # publishConfig.access=public steht in package.json.
-      # --provenance: signierte Herkunfts-Attestierung (Repo ist öffentlich → möglich).
+      #
+      # KEIN --provenance: npm akzeptiert Provenance-Attestierungen ausschließlich von
+      # GitHub-HOSTED Runnern (E422 "Unsupported ... self-hosted"). Wir laufen wegen des
+      # Org-Billing-Bugs aber self-hosted. Sobald wieder github-hosted publiziert wird,
+      # kann --provenance zurück. Die OIDC-Auth ist davon unberührt und läuft self-hosted.
       - name: Publish (Trusted Publishing / OIDC)
-        run: npm publish --provenance
+        run: npm publish
