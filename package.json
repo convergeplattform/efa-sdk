@@ -38,6 +38,7 @@
     "build:frontend": "tsc -p tsconfig.frontend.json && node -e \"require('fs').writeFileSync('frontend/package.json', JSON.stringify({type:'module'}))\"",
     "build": "npm run clean && npm run build:backend && npm run build:frontend",
     "typecheck": "tsc -p tsconfig.backend.json --noEmit && tsc -p tsconfig.frontend.json --noEmit",
+    "test": "vitest run",
     "prepublishOnly": "npm run build"
   },
   "publishConfig": {
@@ -78,9 +79,11 @@
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.6",
+    "cookie-parser": "^1.4.6",
     "@types/node": "^20.14.0",
     "@types/pg": "^8.11.0",
     "@types/react": "^18.2.46",
+    "@types/supertest": "^7.2.0",
     "express": "^4.19.2",
     "i18next": "^23.11.0",
     "i18next-http-backend": "^2.7.3",
@@ -88,7 +91,9 @@
     "pg": "^8.12.0",
     "react": "^18.2.0",
     "react-i18next": "^13.5.0",
-    "typescript": "7.0.2"
+    "supertest": "^7.2.2",
+    "typescript": "7.0.2",
+    "vitest": "^4.1.4"
   },
   "engines": {
     "node": ">=20"

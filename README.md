@@ -76,15 +76,37 @@ physisch auflösen — ohne dass sie ihre tsconfig anpassen müssen.
 ## Publish
 
 Public auf npmjs unter dem Scope `@efa-one` (`publishConfig.access = "public"` ist
-gesetzt):
+gesetzt).
+
+**Automatisiert (Standardweg):** ein `v*`-Tag löst den Publish via GitHub Actions
+aus (`.github/workflows/publish.yml`) — analog zum GHCR-Flow der Apps. Der Workflow
+gleicht Tag ↔ `package.json`-Version ab, läuft Tests + Typecheck als Gate und
+publiziert dann.
 
 ```bash
-npm login          # Account muss Mitglied der @efa-one-Org sein
+npm version patch          # bumpt package.json + legt Commit + Tag an
+git push --follow-tags     # Tag-Push triggert den Publish-Job
+```
+
+Einmalige Voraussetzung: Repo-Secret **`NPM_TOKEN`** (Automation-Token eines
+Accounts mit Publish-Recht auf `@efa-one`) unter *Settings → Secrets and variables →
+Actions*.
+
+**Manuell (Fallback):**
+
+```bash
+npm login          # Account muss Publish-Recht auf @efa-one haben
 npm publish        # baut via prepublishOnly automatisch neu
 ```
 
 `npm install` durch Apps/CI/Docker braucht **keine** Credentials — nur der
 Publish-Schritt.
+
+## Migration einer bestehenden App
+
+Von kopiertem `template-core/` auf das Paket umstellen: siehe
+[MIGRATION.md](./MIGRATION.md) (Import-Mapping, tsconfig/vite-Entkopplung,
+Dockerfile-Bereinigung, Lockfile-Regen).
 
 ## Versionierung
 

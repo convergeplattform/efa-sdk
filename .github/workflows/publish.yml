@@ -1,0 +1,47 @@
+name: Publish @efa-one/sdk
+
+# Löst den npm-Publish beim Pushen eines v*-Tags aus (analog zum GHCR-Flow der Apps).
+# Der reine main-Push publiziert nichts.
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install
+        run: npm ci
+
+      - name: Tag ↔ package.json-Version abgleichen
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "::error::Tag v$TAG passt nicht zu package.json ($PKG). Erst 'npm version' dann taggen."
+            exit 1
+          fi
+          echo "Version $PKG bestätigt."
+
+      - name: Test (Gate)
+        run: npm test
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # npm publish baut via prepublishOnly automatisch neu (backend/ + frontend/).
+      # publishConfig.access=public ist in package.json gesetzt.
+      - name: Publish
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

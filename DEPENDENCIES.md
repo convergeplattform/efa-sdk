@@ -33,6 +33,10 @@ App-Frontend getrennte npm-Projekte sind und je nur einen Entry-Point nutzen.
 | `@types/pg` | `^8.11` | MIT | Typen zu `pg` |
 | `@types/jsonwebtoken` | `^9.0` | MIT | Typen zu `jsonwebtoken` |
 | `@types/react` | `^18.2` | MIT | Typen zu `react` |
+| `@types/supertest` | `^7.2` | MIT | Typen zu `supertest` |
+| `vitest` | `^4.1` | MIT | Test-Runner (`npm test`, `test/**`) |
+| `supertest` | `^7.2` | MIT | HTTP-Integrationstests der Auth-/Exchange-Router |
+| `cookie-parser` | `^1.4` | MIT | nur Test-Harness (Exchange-Router-Cookie-Tests) |
 | `express`, `pg`, `jsonwebtoken`, `react`, `i18next`, `i18next-http-backend`, `react-i18next` | s. o. | MIT | Zum Typecheck der Peer-Nutzung installiert |
 
 ## Container-/OS-Schicht
