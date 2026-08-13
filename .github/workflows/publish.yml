@@ -9,7 +9,9 @@ on:
 
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    # Org-Minuten/Billing-Bug: bei gesetzter Repo-Var RUNNER_LABEL=self-hosted läuft
+    # der Job auf dem self-hosted Runner (dw-vps-converge), sonst GitHub-hosted.
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     permissions:
       contents: read
     steps:
