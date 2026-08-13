@@ -57,4 +57,6 @@ jobs:
       # Org-Billing-Bugs aber self-hosted. Sobald wieder github-hosted publiziert wird,
       # kann --provenance zurück. Die OIDC-Auth ist davon unberührt und läuft self-hosted.
       - name: Publish (Trusted Publishing / OIDC)
-        run: npm publish
+        run: npm publish --provenance=false
+        env:
+          NPM_CONFIG_PROVENANCE: "false"
