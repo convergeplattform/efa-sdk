@@ -110,7 +110,7 @@ export async function registerApiMetadata(
 
       if (res.ok) {
         const body = (await res.json()) as { registered?: string[] };
-        log('info', 'API-Metadaten bei Converge registriert', {
+        log('info', 'API-Metadaten registriert', {
           serviceKey,
           registered: body.registered,
         });
@@ -118,7 +118,7 @@ export async function registerApiMetadata(
       }
 
       const errText = await res.text().catch(() => '');
-      log('warn', 'registerApiMetadata: Converge antwortete mit Fehler', {
+      log('warn', 'registerApiMetadata: Plattform antwortete mit Fehler', {
         status: res.status,
         body: errText,
         attempt,

@@ -6,6 +6,7 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "declaration": true,
+    "removeComments": true,
     "forceConsistentCasingInFileNames": true
   }
 }

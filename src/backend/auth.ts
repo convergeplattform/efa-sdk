@@ -37,7 +37,7 @@ export interface AuthRequest extends Request {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function getConvergePublicKey(): string {
+function getPlatformPublicKey(): string {
   const s = process.env.JWT_PUBLIC_KEY;
   if (!s) throw new Error('JWT_PUBLIC_KEY environment variable is required');
   return Buffer.from(s, 'base64').toString('utf8');
@@ -183,7 +183,7 @@ function hasValidServiceProvenance(req: Request): boolean {
   const audience = process.env.SERVICE_KEY;
   if (!audience) return false;
   try {
-    jwt.verify(token, getConvergePublicKey(), {
+    jwt.verify(token, getPlatformPublicKey(), {
       algorithms: ['RS256'],
       issuer: PROVENANCE_ISSUER,
       audience,
@@ -263,13 +263,13 @@ export function createExchangeRouter(pool: Pool): Router {
     try {
       // Algorithmus + iss/aud pinnen (Finding #9): nur RS256-Tokens, die der
       // Kernel als Converge-Plattform-Token ausgestellt hat, werden akzeptiert.
-      convergePayload = jwt.verify(token, getConvergePublicKey(), {
+      convergePayload = jwt.verify(token, getPlatformPublicKey(), {
         algorithms: ['RS256'],
         issuer: JWT_ISSUER,
         audience: JWT_AUDIENCE,
       }) as JwtPayload;
     } catch {
-      res.status(401).json({ error: 'Invalid or expired Converge token' });
+      res.status(401).json({ error: 'Invalid or expired platform token' });
       return;
     }
 

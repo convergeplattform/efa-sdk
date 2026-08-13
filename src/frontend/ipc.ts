@@ -58,7 +58,7 @@ export function getParentOrigin(): string {
  * that is closed separately by a `frame-ancestors` CSP / X-Frame-Options on the
  * app's own responses (server/nginx layer), not here.
  */
-export function isFromConvergeParent(event: MessageEvent): boolean {
+export function isFromPlatformParent(event: MessageEvent): boolean {
   return event.source === window.parent;
 }
 

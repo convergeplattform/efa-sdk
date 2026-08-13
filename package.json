@@ -1,6 +1,6 @@
 {
   "name": "@efa-one/sdk",
-  "version": "1.10.0",
+  "version": "1.10.1",
   "description": "Offizielles SDK für efa-one-Apps: Auth/Session, Service-Discovery, Gateway-Client, Audit/Reporting/Mail/Notifications, Permission- und Capability-Registrierung sowie das Frontend-IPC-/i18n-Toolkit.",
   "license": "Apache-2.0",
   "type": "commonjs",
@@ -92,13 +92,5 @@
   },
   "engines": {
     "node": ">=20"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/convergeplattform/efa-sdk.git"
-  },
-  "homepage": "https://github.com/convergeplattform/efa-sdk#readme",
-  "bugs": {
-    "url": "https://github.com/convergeplattform/efa-sdk/issues"
   }
 }

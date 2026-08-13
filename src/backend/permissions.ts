@@ -88,7 +88,7 @@ export async function registerPermissions(
 
       if (res.ok) {
         const body = await res.json() as { registered?: string[] };
-        log('info', 'Permissions bei Converge registriert', {
+        log('info', 'Permissions registriert', {
           serviceKey,
           registered: body.registered,
         });
@@ -96,7 +96,7 @@ export async function registerPermissions(
       }
 
       const errText = await res.text().catch(() => '');
-      log('warn', 'registerPermissions: Converge antwortete mit Fehler', {
+      log('warn', 'registerPermissions: Plattform antwortete mit Fehler', {
         status: res.status,
         body: errText,
         attempt,
