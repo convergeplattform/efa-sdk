@@ -14,16 +14,22 @@ jobs:
     runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     permissions:
       contents: read
+      id-token: write   # OIDC für npm Trusted Publishing (kein langlebiger Token)
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install
         run: npm ci
+
+      # Trusted Publishing (OIDC) braucht npm >= 11.5.1 — Node 24 bringt npm 11.x,
+      # zur Sicherheit auf latest heben.
+      - name: npm auf OIDC-fähige Version heben
+        run: npm install -g npm@latest
 
       - name: Tag ↔ package.json-Version abgleichen
         run: |
@@ -41,9 +47,11 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      # npm publish baut via prepublishOnly automatisch neu (backend/ + frontend/).
-      # publishConfig.access=public ist in package.json gesetzt.
-      - name: Publish
-        run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # Trusted Publishing: npm authentifiziert sich per OIDC (id-token oben) gegen
+      # den auf npmjs.com hinterlegten Trusted Publisher — KEIN NODE_AUTH_TOKEN nötig.
+      # npm publish baut via prepublishOnly neu (backend/ + frontend/);
+      # publishConfig.access=public steht in package.json.
+      # --provenance=false, weil das Repo privat ist (Provenance verlangt ein
+      # öffentliches Repo); die OIDC-Auth ist davon unabhängig.
+      - name: Publish (Trusted Publishing / OIDC)
+        run: npm publish --provenance=false
