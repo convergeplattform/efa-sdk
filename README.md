@@ -1,43 +1,43 @@
 # @efa-one/sdk
 
-Offizielles SDK zum Bauen von **efa-one-Apps**. Es ist die verbindliche
-Integrationsschicht, die jede App einbettet, um ein First-Class-Bürger der
-Plattform zu sein: Auth gegen den Kernel, Clients zu den Plattform-Services und
-das Frontend-IPC-/i18n-Toolkit für die iframe-Einbettung.
+Official SDK for building **efa-one apps**. It is the integration layer every app
+embeds to become a first-class citizen of the platform: authentication against the
+kernel, clients for the platform services, and the frontend IPC / i18n toolkit for
+iframe embedding.
 
-## Zwei Entry-Points
+## Two entry points
 
-Das SDK ist gemischt server-/browserseitig und daher in zwei Sub-Pfade getrennt,
-damit `express` nicht ins Frontend und `react` nicht ins Backend leakt:
+The SDK is a mix of server- and browser-side code, so it is split into two
+sub-paths — this keeps `express` out of the frontend and `react` out of the backend:
 
-| Import | Läuft in | Enthält |
+| Import | Runs in | Contains |
 |---|---|---|
-| `@efa-one/sdk/backend` | Node/Express | Auth + Token-Exchange (`requireAuth`, `createExchangeRouter`, `requireInternalOrAuth` …), Health-Router, Service-Discovery + Gateway-Client (`serviceClient`, `resolveService`), Clients für Audit/Reporting/Mail/Notifications, Permission-Auflösung/-Registrierung (`getUserPermissions`, `registerPermissions`, `checkPermission`), Capability-Registry (`registerApiMetadata`), Backend-i18n |
-| `@efa-one/sdk/frontend` | Browser/React | postMessage-IPC (`sendDeclareAppInfo`, `sendAtStart`, `navigateToApp`, `notifyRouteChange` …), react-i18next-Factory (`initI18n`), `DevHeader` |
+| `@efa-one/sdk/backend` | Node/Express | Auth + token exchange (`requireAuth`, `createExchangeRouter`, `requireInternalOrAuth` …), health router, service discovery + gateway client (`serviceClient`, `resolveService`), clients for audit/reporting/mail/notifications, permission resolution/registration (`getUserPermissions`, `registerPermissions`, `checkPermission`), capability registry (`registerApiMetadata`), backend i18n |
+| `@efa-one/sdk/frontend` | Browser/React | postMessage IPC (`sendDeclareAppInfo`, `sendAtStart`, `navigateToApp`, `notifyRouteChange` …), react-i18next factory (`initI18n`), `DevHeader` |
 
-Jedes Einzelmodul ist zusätzlich direkt erreichbar, z. B.
-`@efa-one/sdk/backend/auth` oder `@efa-one/sdk/frontend/ipc`.
+Every individual module is also reachable directly, e.g.
+`@efa-one/sdk/backend/auth` or `@efa-one/sdk/frontend/ipc`.
 
-> **Hinweis zu Legacy-Präfixen:** Einige plattform-interne Identifier (postMessage-
-> Nachrichtentypen, Env-Variablen-Namen, JWT-`iss`) tragen noch technische
-> Legacy-Präfixe aus einer früheren Namensgebung. Diese sind Teil des Draht-
-> Protokolls zwischen App und Kernel und werden gemeinsam mit dem Kernel in einem
-> koordinierten Schritt migriert — nicht einseitig im SDK.
+> **Note on legacy prefixes:** Some platform-internal identifiers (postMessage
+> message types, environment variable names, JWT `iss`) still carry technical
+> legacy prefixes from an earlier naming. These are part of the wire protocol
+> between app and kernel and are migrated together with the kernel in one
+> coordinated step — not unilaterally in the SDK.
 
 ## Installation
 
 ```bash
-# im Backend-Projekt der App
+# in the app's backend project
 npm install @efa-one/sdk express pg jsonwebtoken
 
-# im Frontend-Projekt der App
+# in the app's frontend project
 npm install @efa-one/sdk react i18next i18next-http-backend react-i18next
 ```
 
-Die Runtime-Bibliotheken sind **optionale Peer-Dependencies** — installiere nur die
-zum genutzten Entry-Point passenden. Das SDK selbst bündelt sie nicht.
+The runtime libraries are **optional peer dependencies** — install only the ones
+matching the entry point you use. The SDK itself does not bundle them.
 
-## Verwendung
+## Usage
 
 ```ts
 // Backend
@@ -56,64 +56,28 @@ sendDeclareAppInfo({ appName: 'efa-chat', version: __APP_VERSION__ });
 
 ## Build
 
-Reines `tsc`, kein Bundler. Zwei Targets:
+Plain `tsc`, no bundler. Two targets:
 
 ```bash
-npm install          # devDeps + Peer-Libs zum Typecheck
-npm run build        # backend/ (CJS) + frontend/ (ESM), je mit .d.ts
-npm run typecheck    # nur Typprüfung, kein Emit
+npm install          # devDeps + peer libs for the typecheck
+npm run build        # backend/ (CJS) + frontend/ (ESM), each with .d.ts
+npm run typecheck    # type check only, no emit
 ```
 
 - `backend/` — CommonJS (`module: commonjs`)
-- `frontend/` — ESM (`module: esnext`, `moduleResolution: bundler`), via
-  `frontend/package.json` als `{"type":"module"}` markiert; App-Bundler (Vite)
-  konsumieren es direkt.
+- `frontend/` — ESM (`module: esnext`, `moduleResolution: bundler`), marked via
+  `frontend/package.json` as `{"type":"module"}`; app bundlers (Vite) consume it
+  directly.
 
-Das flache Output-Layout (`backend/` + `frontend/` im Paket-Root) ist bewusst so
-gewählt, damit Consumer mit `moduleResolution: node` (node10) die Subpath-Importe
-physisch auflösen — ohne dass sie ihre tsconfig anpassen müssen.
+The flat output layout (`backend/` + `frontend/` at the package root) is a
+deliberate choice so that consumers using `moduleResolution: node` (node10) can
+resolve the subpath imports physically — without having to change their tsconfig.
 
-## Publish
+## Versioning
 
-Public auf npmjs unter dem Scope `@efa-one` (`publishConfig.access = "public"` ist
-gesetzt).
+SemVer. Consuming apps pull new versions with `npm update @efa-one/sdk`.
 
-**Automatisiert (Standardweg):** ein `v*`-Tag löst den Publish via GitHub Actions
-aus (`.github/workflows/publish.yml`) — analog zum GHCR-Flow der Apps. Der Workflow
-gleicht Tag ↔ `package.json`-Version ab, läuft Tests + Typecheck als Gate und
-publiziert dann.
+## License
 
-```bash
-npm version patch          # bumpt package.json + legt Commit + Tag an
-git push --follow-tags     # Tag-Push triggert den Publish-Job
-```
-
-Einmalige Voraussetzung: Repo-Secret **`NPM_TOKEN`** (Automation-Token eines
-Accounts mit Publish-Recht auf `@efa-one`) unter *Settings → Secrets and variables →
-Actions*.
-
-**Manuell (Fallback):**
-
-```bash
-npm login          # Account muss Publish-Recht auf @efa-one haben
-npm publish        # baut via prepublishOnly automatisch neu
-```
-
-`npm install` durch Apps/CI/Docker braucht **keine** Credentials — nur der
-Publish-Schritt.
-
-## Migration einer bestehenden App
-
-Von kopiertem `template-core/` auf das Paket umstellen: siehe
-[MIGRATION.md](./MIGRATION.md) (Import-Mapping, tsconfig/vite-Entkopplung,
-Dockerfile-Bereinigung, Lockfile-Regen).
-
-## Versionierung
-
-SemVer. Template-Migration = `npm version` + publish; App-Update =
-`npm update @efa-one/sdk`.
-
-## Lizenz
-
-[Apache-2.0](./LICENSE) — permissiv mit Patent-Grant, damit Kunden und Partner ohne
-Reibung efa-one-Apps bauen können.
+[Apache-2.0](./LICENSE) — permissive with a patent grant, so customers and partners
+can build efa-one apps without friction.
