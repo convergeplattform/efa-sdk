@@ -51,7 +51,6 @@ jobs:
       # den auf npmjs.com hinterlegten Trusted Publisher — KEIN NODE_AUTH_TOKEN nötig.
       # npm publish baut via prepublishOnly neu (backend/ + frontend/);
       # publishConfig.access=public steht in package.json.
-      # --provenance=false, weil das Repo privat ist (Provenance verlangt ein
-      # öffentliches Repo); die OIDC-Auth ist davon unabhängig.
+      # --provenance: signierte Herkunfts-Attestierung (Repo ist öffentlich → möglich).
       - name: Publish (Trusted Publishing / OIDC)
-        run: npm publish --provenance=false
+        run: npm publish --provenance
