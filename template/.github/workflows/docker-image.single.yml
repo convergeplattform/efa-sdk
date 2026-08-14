@@ -1,0 +1,69 @@
+# CI für den Single-Container-Stack: baut EIN Image (Dockerfile.single).
+#
+# Verwendung in einer Single-Container-App:
+#   1. docker-image.yml (Standard-Stack, baut backend + frontend) löschen.
+#   2. Diese Datei nach docker-image.yml umbenennen.
+# Sonst würden beide Workflows beim Tag-Push laufen und doppelt bauen.
+#
+# Das Image trägt weiter den -backend-Suffix, damit der Converge-Deployer den
+# serviceKey wie gewohnt aus dem Image-Namen ableiten kann.
+
+name: Build Image (single-container)
+
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Compute IMAGE_BASE (normalize repo name)
+        run: |
+          OWNER="${{ github.repository_owner }}"
+          REPO="${{ github.event.repository.name }}"
+          REPO_NORM="${REPO//-/_}"
+          echo "IMAGE_BASE=${OWNER}/${REPO_NORM}" >> "$GITHUB_ENV"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker meta (app)
+        id: meta_app
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_BASE }}-backend
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=latest
+            type=ref,event=tag
+
+      - name: Build & push app
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.single
+          build-args: |
+            APP_VERSION=${{ github.ref_name }}
+          push: true
+          tags: ${{ steps.meta_app.outputs.tags }}
+          labels: ${{ steps.meta_app.outputs.labels }}

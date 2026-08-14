@@ -1,0 +1,67 @@
+# Single-Container-Stack: ein Container (SPA + API + SQLite) statt drei.
+# Für einfache Apps ohne Stammdaten-/Concurrency-/Reporting-Anforderungen.
+# Standard-Stack (3 Container + PostgreSQL) bleibt docker-compose.yml.
+#
+# Plattform-Verträglichkeit (verifiziert, keine Kernel-Änderung nötig):
+#  - Service heißt "backend" → Kernel-Discovery erkennt ihn (Label
+#    com.docker.compose.service=backend) und liest /api/openapi.json auf :3001.
+#  - Kein frontend-Service → registrySync fällt auf den backend-Container zurück
+#    und das Gateway routet /apps/{serviceKey}/ → backend:3001 (Prefix wird
+#    weggerewritet). Daher MUSS dieses Backend die SPA selbst ausliefern
+#    (SERVE_STATIC=true).
+
+networks:
+  converge-net:
+    external: true       # Created and managed by Converge
+
+volumes:
+  app-data:              # SQLite-Datei (/app/data/app.db) + ggf. Uploads
+
+services:
+
+  backend:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/d-w-it-consulting/template_app}-backend:${IMAGE_TAG:-latest}
+    build:
+      context: .          # Repo root – backend/frontend package*.json + src
+      dockerfile: Dockerfile.single
+      args:
+        APP_VERSION: ${APP_VERSION:-dev}
+    restart: unless-stopped
+    # ── Härtung (Findings #22/#29) ──────────────────────────────────────────
+    init: true                     # PID-1-Reaper (SIGTERM sauber, Zombie-frei)
+    read_only: true                # Rootfs unveränderlich; nur Volume + tmpfs beschreibbar
+    security_opt:
+      - no-new-privileges:true     # kein setuid-Eskalationspfad
+    cap_drop:
+      - ALL                        # Node/SQLite braucht keine Linux-Capabilities
+    tmpfs:
+      - /tmp                       # einzige beschreibbare Stelle auf dem Rootfs
+    # mem_limit ist eine Obergrenze (reserviert nichts). Default bewusst großzügig:
+    # sehr niedrige Limits (< ~512m) lösen unter Docker-Desktop/macOS (cgroup v2 im
+    # LinuxKit-VM) einen sporadischen Node-Startup-SIGSEGV aus. Auf der Linux-VPS
+    # unkritisch; pro App bei Bedarf via BACKEND_MEM_LIMIT herunterdrehen + testen.
+    mem_limit: ${BACKEND_MEM_LIMIT:-1g}
+    cpus: ${BACKEND_CPUS:-1.0}
+    pids_limit: 256
+    expose:
+      - "3001"            # Nur intern im Docker-Netz; das Gateway routet hierher.
+    env_file:
+      - .env              # Stack- + App-Werte. APP_DB_* werden hier nicht benötigt.
+    environment:
+      - PORT=3001
+      - DB_DRIVER=sqlite
+      - SQLITE_PATH=/app/data/app.db
+      - SERVE_STATIC=true
+      - STATIC_DIR=/app/public
+    volumes:
+      - app-data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3001/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
+    networks:
+      converge-net:
+        aliases:
+          - template-backend   # Beim Kopieren auf converge-{app}-backend ändern.

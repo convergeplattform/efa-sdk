@@ -1,0 +1,112 @@
+name: Security & License Scan
+
+# Ergänzt den reinen Build-Workflow (docker-image.yml, nur Tag-Push) um
+# kontinuierliche Dependency-Prüfung: auf jeden Push/PR + wöchentlich.
+# Kanonische Vorlage — wird per cp -R in jede neue App kopiert.
+
+on:
+  push:
+    branches: [main, developement]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1"   # montags 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  npm-audit:
+    name: npm audit (${{ matrix.dir }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dir: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      # Hard-Fail bei HIGH + CRITICAL. Verbleibende Moderate/Low stehen im BACKLOG.
+      - name: npm audit
+        working-directory: ${{ matrix.dir }}
+        run: npm audit --audit-level=high
+
+  licenses:
+    name: License gate (${{ matrix.dir }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dir: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Install (prod only, no scripts)
+        working-directory: ${{ matrix.dir }}
+        # npm install (nicht ci) — tolerant gegen Lockfile-Drift; CI-Install ist ephemer.
+        # --legacy-peer-deps: i18next@26 deklariert peerOptional typescript@"^5||^6",
+        # die Repos pinnen aber TS 7.0.2 (CLAUDE.md) → sonst ERESOLVE (wie in den
+        # Frontend-Dockerfiles, die denselben Flag nutzen). Rein für die License-Analyse.
+        run: npm install --omit=dev --ignore-scripts --no-audit --no-fund --legacy-peer-deps
+      - name: License summary (informativ)
+        working-directory: ${{ matrix.dir }}
+        run: npx --yes license-checker --production --summary
+      # Hard-Fail nur bei echtem Copyleft (GPL/AGPL/LGPL). Permissive Lizenzen
+      # (MIT/Apache/ISC/BSD/MPL/OFL) sind erlaubt. Strenger via --onlyAllow möglich.
+      - name: Fail on copyleft
+        working-directory: ${{ matrix.dir }}
+        run: >
+          npx --yes license-checker --production
+          --failOn "GPL-1.0-only;GPL-1.0-or-later;GPL-2.0-only;GPL-2.0-or-later;GPL-3.0-only;GPL-3.0-or-later;AGPL-1.0-only;AGPL-1.0-or-later;AGPL-3.0-only;AGPL-3.0-or-later;LGPL-2.0-only;LGPL-2.1-only;LGPL-2.1-or-later;LGPL-3.0-only;LGPL-3.0-or-later"
+
+  trivy:
+    name: Trivy filesystem scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Scannt Lockfiles (npm) + Dockerfiles auf bekannte CVEs.
+      # ignore-unfixed: keine Fehlschläge bei CVEs ohne verfügbaren Fix (Base-Image-Rauschen).
+      - name: Trivy fs scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: 1
+      # WICHTIG: Der Scan oben (ignore-unfixed) blendet CVEs ohne Fix aus — genau
+      # die Klasse, die eine EOL-Runtime/-Dependency produziert. Dieser zweite,
+      # NICHT blockierende Pass macht sie sichtbar (HIGH+CRITICAL, inkl. unfixed),
+      # damit „keine Fixes verfügbar" nicht = „unsichtbar" wird.
+      - name: Trivy fs scan — unfixed sichtbar machen (informativ)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: false
+          exit-code: 0
+
+  trivy-config:
+    name: Trivy misconfig & secret scan (report-only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Prüft Dockerfiles + docker-compose auf Härtungslücken (root-User, fehlendes
+      # cap_drop/read_only, ungepinnte Images) und versehentlich eingecheckte Secrets.
+      # exit-code 0 = report-only: sichtbar machen, ohne day-1 jeden Build zu brechen.
+      # Nach Abarbeitung der Härtung auf exit-code 1 hochziehen.
+      - name: Trivy config/secret scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: misconfig,secret
+          severity: HIGH,CRITICAL
+          exit-code: 0

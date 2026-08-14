@@ -54,7 +54,25 @@ import { initI18n, sendDeclareAppInfo, DevHeader } from '@efa-one/sdk/frontend';
 sendDeclareAppInfo({ appName: 'efa-chat', version: __APP_VERSION__ });
 ```
 
-## Build
+## Build your first app
+
+This repo ships a ready-to-copy app scaffold under [`template/`](./template) — the fastest
+path to a working efa-app. It already wires up auth, health, service discovery,
+audit/reporting, IPC and i18n against this SDK, so you write business logic only. No extra
+tooling (and no Claude Code) required — clone the repo, then:
+
+```bash
+cp -R template efa-myapp
+cd efa-myapp && rm -rf .git && git init
+npm --prefix backend install && npm --prefix frontend install
+docker compose up -d --build
+```
+
+See [`template/README.md`](./template/README.md) for the full walkthrough — stack variants
+(3-container/PostgreSQL vs. single-container/SQLite), the intake questions, permission
+registration, and the README chapters every app must keep.
+
+## Build the SDK itself
 
 Plain `tsc`, no bundler. Two targets:
 

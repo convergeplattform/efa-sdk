@@ -1,0 +1,76 @@
+# Single-Container-Stack: ein Image bedient SPA + API + /health auf Port 3001.
+# Gegenstück zum Standard-Stack (backend/Dockerfile + frontend/Dockerfile).
+# Build-Kontext = Repo-Root. Nutzung: docker-compose.single.yml.
+# (@efa-one/sdk kommt via npm ci aus node_modules — kein template-core/-COPY mehr.)
+
+# ─── Stage 1: Frontend bauen (Vite) ───────────────────────────────────────────
+FROM node:24-alpine@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43 AS frontend-build
+
+ARG APP_VERSION=dev
+ENV APP_VERSION=$APP_VERSION
+
+WORKDIR /app
+COPY frontend/package*.json ./frontend/
+RUN cd frontend && npm ci
+COPY frontend/ ./frontend/
+# Vite übernimmt das Bundling (tsc-Typecheck im Docker-Build übersprungen — siehe frontend/Dockerfile).
+RUN cd frontend && npx vite build
+
+# ─── Stage 2: Backend bauen (tsc) ─────────────────────────────────────────────
+FROM node:24-alpine@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43 AS backend-build
+
+WORKDIR /app
+COPY backend/package*.json ./backend/
+RUN cd backend && npm ci
+COPY backend/tsconfig.json ./backend/
+COPY backend/src/ ./backend/src/
+RUN cd backend && npm run build
+# Nicht-TS-Assets (beide Schema-Dialekte) an die kompilierte Stelle kopieren.
+RUN cp backend/src/db/schema.sql        backend/dist/db/schema.sql \
+ && cp backend/src/db/schema.sqlite.sql backend/dist/db/schema.sqlite.sql
+
+# ─── Runtime ──────────────────────────────────────────────────────────────────
+FROM node:24-alpine@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43
+
+ARG APP_VERSION=dev
+ENV APP_VERSION=$APP_VERSION
+ENV NODE_ENV=production
+
+WORKDIR /app
+
+# Non-root-Runtime-User. Die Build-Stages oben laufen weiter als root (ephemer,
+# unkritisch) — hier zählt nur, dass der LAUFENDE Prozess kein root ist.
+RUN addgroup -S app && adduser -S app -G app
+
+# better-sqlite3 ist ein Native-Modul; Alpine/musl hat keine Prebuilds, daher
+# Build-Toolchain temporär installieren, kompilieren, wieder entfernen.
+COPY --from=backend-build /app/backend/package*.json ./
+# npm nach dem Prod-Install entfernen (Runtime startet mit `node`): beseitigt
+# CVE-2026-59873 (node-tar im gebündelten npm des Base-Images) + Angriffsfläche.
+RUN apk add --no-cache --virtual .build-deps python3 make g++ \
+ && npm ci --omit=dev \
+ && apk del .build-deps \
+ && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /root/.npm
+
+# Kompiliertes Backend + gebautes Frontend (statisch ausgeliefert via SERVE_STATIC).
+COPY --from=backend-build  /app/backend/dist ./dist
+COPY --from=frontend-build /app/frontend/dist ./public
+
+# Deploy-Bundle: converge-deployer liest Stack-Layout + erwartete ENV-Keys aus dem Image.
+COPY docker-compose.single.yml /app/docker-compose.yml
+COPY .env.example /app/.env.example
+
+# Schreibbares Datenverzeichnis, dem User gehörend. Ein leeres Named-Volume erbt
+# beim ersten Mount die Ownership dieses Dirs → SQLite-Writes (inkl. WAL) laufen
+# trotz non-root UND read-only-Rootfs, weil nur das Volume beschreibbar sein muss.
+RUN mkdir -p /app/data && chown -R app:app /app/data
+
+EXPOSE 3001
+USER app
+
+# Docker-HEALTHCHECK (Finding #29). Nutzt den /health-Endpoint, den express im
+# SERVE_STATIC-Betrieb mitbedient. busybox-wget ist im Alpine-Image vorhanden.
+HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 \
+  CMD wget -q --spider http://127.0.0.1:3001/health || exit 1
+
+CMD ["node", "dist/index.js"]

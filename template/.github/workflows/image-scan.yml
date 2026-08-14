@@ -1,0 +1,114 @@
+name: Image Vulnerability Scan
+
+# ── Warum es diese zweite Stufe braucht ──────────────────────────────────────
+# security.yml macht `trivy fs` — das scannt Lockfiles + Manifeste im Repo,
+# also EURE npm-Dependencies. Es sieht NICHT den OS-/Runtime-Layer des gebauten
+# Images (node:*, nginx:*, das musl/Alpine-Userland). Genau dort sitzt aber der
+# EOL-/Base-Image-Befund: eine ausgelaufene Runtime sammelt CVEs, für die es
+# keinen Fix mehr gibt. Deshalb scannt DIESER Workflow das FERTIG GEBAUTE Image.
+#
+# Läuft NACH dem Build-Workflow (workflow_run). Ein rotes X hier heißt:
+# "dieses Tag NICHT über den Deployer ausrollen". Das Image liegt dann zwar schon
+# in der GHCR, aber der Deploy ist manuell — der rote Check ist das Gate.
+#
+# Kanonische Vorlage — 1:1 (ohne Änderung) in jedes App-/System-Repo kopieren.
+# Der Job erkennt selbst, welche Images das Repo baut (backend / frontend /
+# gateway), indem er den Build-Workflow ausliest — funktioniert für Single-,
+# 3-Container- und Kernel-Layout ohne Anpassung.
+
+on:
+  workflow_run:
+    workflows: ["Build Images", "Build Image (single-container)", "Build Image"]
+    types: [completed]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  detect:
+    # Nur laufen, wenn der Build erfolgreich war (sonst gibt es kein Image),
+    # oder bei manuellem Start.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    outputs:
+      suffixes: ${{ steps.d.outputs.suffixes }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: d
+        name: Welche Images baut dieses Repo?
+        run: |
+          SUF=()
+          for s in backend frontend gateway; do
+            if grep -rqE "IMAGE_BASE[^A-Za-z0-9_]*-${s}([^A-Za-z0-9_]|$)" .github/workflows/docker-image*.yml 2>/dev/null; then
+              SUF+=("\"$s\"")
+            fi
+          done
+          # Fallback: mindestens das backend-Image existiert immer.
+          if [ ${#SUF[@]} -eq 0 ]; then SUF=("\"backend\""); fi
+          JSON="[$(IFS=,; echo "${SUF[*]}")]"
+          echo "suffixes=$JSON" >> "$GITHUB_OUTPUT"
+          echo "Erkannte Image-Suffixe: $JSON"
+
+  scan:
+    needs: detect
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        suffix: ${{ fromJSON(needs.detect.outputs.suffixes) }}
+    steps:
+      - name: Image-Ref berechnen (Repo-Name normalisieren)
+        run: |
+          OWNER="${{ github.repository_owner }}"
+          OWNER="${OWNER,,}"   # OCI-/GHCR-Refs müssen lowercase sein (repository_owner kann Großbuchstaben enthalten)
+          REPO="${{ github.event.repository.name }}"
+          REPO_NORM="${REPO//-/_}"
+          # Den UNVERÄNDERLICHEN Versions-Tag des auslösenden Builds bevorzugen,
+          # nicht das mutable :latest. Auf self-hosted Runnern liegt ein altes
+          # :latest lokal im Docker-Store → Trivy scannt sonst das veraltete Image
+          # statt des frisch gebauten (führt zu Geister-CRITICALs). head_branch ist
+          # bei Tag-Builds der Tag-Name (z.B. v0.11.2); sonst Fallback auf :latest.
+          TAG="${{ github.event.workflow_run.head_branch }}"
+          case "$TAG" in v*) : ;; *) TAG="latest" ;; esac
+          echo "IMAGE=ghcr.io/${OWNER}/${REPO_NORM}-${{ matrix.suffix }}:${TAG}" >> "$GITHUB_ENV"
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Frisch aus der Registry ziehen, damit ein evtl. lokal gecachtes gleichnamiges
+      # Image (self-hosted Runner) den aktuellen Digest überschrieben bekommt.
+      - name: Image frisch aus GHCR ziehen
+        run: docker pull "${{ env.IMAGE }}"
+
+      # HARTER GATE: CRITICAL blockiert den Check — inkl. unfixed. `ignore-unfixed:
+      # false` ist hier bewusst gesetzt (Gegenteil zum fs-Scan): eine EOL-Runtime
+      # produziert per Definition CVEs OHNE Fix — würde man die ignorieren, wäre
+      # das Gate blind für genau den Fall, den es fangen soll.
+      - name: Trivy image scan — CRITICAL (blockierend)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ env.IMAGE }}
+          scanners: vuln
+          severity: CRITICAL
+          ignore-unfixed: false
+          exit-code: 1
+
+      # INFORMATIV: HIGH nur anzeigen, nicht blockieren. Alpine-Images tragen
+      # regelmäßig HIGH-CVEs ohne Fix; die würden jeden Release rot machen. Wer
+      # den Gate schärfer will, hebt severity oben auf CRITICAL,HIGH.
+      - name: Trivy image scan — HIGH (informativ)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ env.IMAGE }}
+          scanners: vuln
+          severity: HIGH
+          ignore-unfixed: false
+          exit-code: 0

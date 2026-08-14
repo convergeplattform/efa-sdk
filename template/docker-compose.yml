@@ -1,0 +1,107 @@
+networks:
+  converge-net:
+    external: true       # Created and managed by Converge
+  app-internal:
+    driver: bridge       # Private network for database isolation
+
+volumes:
+  app-pg-data:
+  # app-uploads:          # Uncomment for file upload persistence
+
+services:
+
+  database:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    # DB-Härtung bewusst reduziert: das offizielle postgres-Image startet als root,
+    # chownt das Data-Dir und dropt via gosu auf den postgres-User — daher KEIN
+    # cap_drop: ALL / read_only (würde den Entrypoint brechen). no-new-privileges +
+    # Limits sind sicher; die DB hängt ohnehin nur im isolierten app-internal-Netz.
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: ${DB_MEM_LIMIT:-512m}
+    cpus: ${DB_CPUS:-1.0}
+    pids_limit: 256
+    environment:
+      POSTGRES_DB: ${APP_DB_NAME:-appdb}
+      POSTGRES_USER: ${APP_DB_USER:-appuser}
+      POSTGRES_PASSWORD: ${APP_DB_PASSWORD:?APP_DB_PASSWORD is required}
+    volumes:
+      - app-pg-data:/var/lib/postgresql/data
+    networks:
+      - app-internal      # NEVER converge-net – database is never directly reachable from Converge
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${APP_DB_USER:-appuser}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/d-w-it-consulting/template_app}-backend:${IMAGE_TAG:-latest}
+    build:
+      context: .          # Repo root – backend/frontend package*.json + src
+      dockerfile: backend/Dockerfile
+      args:
+        APP_VERSION: ${APP_VERSION:-dev}   # GHCR-Tag wird als Build-Arg durchgereicht
+    restart: unless-stopped
+    # ── Härtung (Findings #22/#29) ──────────────────────────────────────────
+    init: true
+    read_only: true                # schreibt nichts auf Platte (DB = Postgres)
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp
+    # Default großzügig — sehr niedrige Limits triggern unter Docker-Desktop/macOS
+    # (cgroup v2) einen sporadischen Node-Startup-SIGSEGV. Auf der VPS unkritisch.
+    mem_limit: ${BACKEND_MEM_LIMIT:-1g}
+    cpus: ${BACKEND_CPUS:-1.0}
+    pids_limit: 256
+    depends_on:
+      database:
+        condition: service_healthy
+    expose:
+      - "3001"            # Only expose within Docker networks, no host port mapping
+    env_file:
+      - .env              # Alle Werte (Stack + App-spezifisch) in einer Datei. In Prod schreibt deploy.sh diese Datei beim Bootstrap/Update aus /opt/converge/.secrets.
+    environment:
+      # Nur abgeleitete/zusammengesetzte Werte
+      - PORT=3001
+      - DATABASE_URL=postgresql://${APP_DB_USER:-appuser}:${APP_DB_PASSWORD}@database:5432/${APP_DB_NAME:-appdb}
+    # volumes:                                   # Uncomment for file upload persistence
+    #   - app-uploads:/app/data/uploads
+    networks:
+      converge-net:
+        aliases:
+          - template-backend
+      app-internal: {}
+
+  frontend:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/d-w-it-consulting/template_app}-frontend:${IMAGE_TAG:-latest}
+    build:
+      context: .          # Repo root – backend/frontend package*.json + src
+      dockerfile: frontend/Dockerfile
+      args:
+        APP_VERSION: ${APP_VERSION:-dev}
+    restart: unless-stopped
+    # ── Härtung (Findings #22/#29) ──────────────────────────────────────────
+    # nginx-unprivileged läuft non-root und schreibt pid/temp nach /tmp → read_only
+    # + tmpfs /tmp genügt. NET_BIND_SERVICE NICHT nötig (Port 8080 > 1024).
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp
+    mem_limit: ${FRONTEND_MEM_LIMIT:-128m}
+    cpus: ${FRONTEND_CPUS:-0.5}
+    pids_limit: 128
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-6800}:8080"   # Host port for Converge iframe access; container lauscht non-root auf 8080
+    networks:
+      - converge-net
+      - app-internal

@@ -1,0 +1,57 @@
+/**
+ * Converge Design System — design tokens (single source of truth).
+ *
+ * These CSS custom properties ARE the theme. At runtime inside the Converge
+ * portal they are fully overwritten per active theme via postMessage
+ * (CONVERGE_AUTH → theme.colors, all 13 color properties + theme.mode). The
+ * values below are the shipped light/dark defaults.
+ *
+ * Design rule: the Converge look is deliberately squared — every
+ * --border-radius-* is 0px. Only `rounded-none` and `rounded-full` (real
+ * circles) are permitted; never rounded-sm|md|lg|...
+ */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Primary */
+  --color-primary:        #6366f1;
+  --color-primary-hover:  #4f46e5;
+  --color-secondary:      #8b5cf6;
+
+  /* Semantic (fixed in both modes) */
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger:  #ef4444;
+
+  /* Surfaces — light defaults */
+  --color-background:     #f8fafc;
+  --color-surface:        #ffffff;
+  --color-surface-raised: #f1f5f9;
+  --color-border:         #e2e8f0;
+
+  /* Text — light defaults */
+  --color-text-primary:   #0f172a;
+  --color-text-secondary: #334155;
+  --color-text-muted:     #64748b;
+
+  /* Layout (fixed) */
+  --header-height:     60px;
+  --border-radius-sm:  3px;
+  --border-radius-md:  3px;
+  --border-radius-lg:  3px;
+
+  /* Typography */
+  --font-family-base: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* Dark mode — activated by data-theme="dark" on <html> */
+[data-theme="dark"] {
+  --color-background:     #1e1e1e;
+  --color-surface:        #252526;
+  --color-surface-raised: #2d2d30;
+  --color-border:         #3e3e42;
+  --color-text-primary:   #f1f5f9;
+  --color-text-secondary: #cbd5e1;
+  --color-text-muted:     #94a3b8;
+  --color-primary-hover:  #818cf8;
+}

@@ -1,0 +1,43 @@
+# Automatisierte Dependency-Updates (Bot öffnet wöchentlich PRs).
+# Ergänzt DEPENDENCIES.md + die Vetting-Regel: findet veraltete/EOL-Pakete
+# strukturell, statt per Hand-Audit.
+#
+# Layout: 3-Container-Stack (eigene Dockerfiles in backend/ + frontend/).
+# Single-Container-Apps setzen die docker-Blöcke auf `directory: "/"` (Dockerfile.single).
+version: 2
+updates:
+  # --- npm: Backend ---
+  - package-ecosystem: npm
+    directory: /backend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      backend-dev:            # devDependencies gebündelt = weniger PR-Rauschen
+        dependency-type: development
+
+  # --- npm: Frontend ---
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      frontend-dev:
+        dependency-type: development
+
+  # --- Docker-Base-Images (node:20-alpine, nginx:alpine) ---
+  - package-ecosystem: docker
+    directory: /backend
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /frontend
+    schedule:
+      interval: weekly
+
+  # --- GitHub-Actions (actions/checkout, trivy-action, …) ---
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
