@@ -68,12 +68,12 @@ export function sendAtStart(): void {
 }
 
 /**
- * Declares the app's identity to Converge so it can be shown in the kernel help modal.
+ * @deprecated Use `registerAppInfo` instead. This fires exactly once and carries
+ * no `serviceKey`, so the kernel cannot tell it apart from a stale declaration of
+ * a previously open app (all apps share one origin). The kernel ignores payloads
+ * without a matching `serviceKey`, so this call no longer sets the header version.
  *
- * Call once at app start (e.g. from the top-level effect), passing the human-readable
- * app name and the current build version. Converge's help icon in the header then shows
- * these values while this app is embedded; without this call the kernel falls back to
- * its own info.
+ * Declares the app's identity to Converge so it can be shown in the kernel help modal.
  */
 export function sendDeclareAppInfo(payload: { appName: string; version: string }): void {
   if (!isEmbedded()) return;
@@ -81,6 +81,52 @@ export function sendDeclareAppInfo(payload: { appName: string; version: string }
     { type: 'CONVERGE_DECLARE_APP_INFO', payload },
     getParentOrigin(),
   );
+}
+
+/**
+ * Builds the outbound CONVERGE_DECLARE_APP_INFO message from an inbound
+ * CONVERGE_AUTH message's data, tagging it with the `serviceKey` the kernel sent.
+ * Returns null when the data is not a CONVERGE_AUTH carrying a string serviceKey.
+ *
+ * Pure (no DOM access) so the correlation logic is unit-testable. The kernel
+ * accepts the declaration only when this `serviceKey` matches the currently
+ * framed tile — which is why re-declaring on every auth (not once at mount) keeps
+ * the header correct across app switches, back/forward and bfcache restores.
+ */
+export function appInfoDeclareFromAuth(
+  info: { appName: string; version: string },
+  data: unknown,
+): { type: 'CONVERGE_DECLARE_APP_INFO'; payload: { appName: string; version: string; serviceKey: string } } | null {
+  const d = data as { type?: unknown; serviceKey?: unknown } | null;
+  if (!d || d.type !== 'CONVERGE_AUTH' || typeof d.serviceKey !== 'string') return null;
+  return {
+    type: 'CONVERGE_DECLARE_APP_INFO',
+    payload: { appName: info.appName, version: info.version, serviceKey: d.serviceKey },
+  };
+}
+
+/**
+ * Registers the app's identity with Converge and keeps it in sync.
+ *
+ * Call once at app start with the human-readable app name and current build
+ * version. It listens for CONVERGE_AUTH from the platform parent and, on every
+ * such message, re-declares the app info tagged with the `serviceKey` the kernel
+ * sent. Because the kernel re-sends CONVERGE_AUTH on every open (and after
+ * back/forward / bfcache restore), the header always reflects the app that is
+ * actually framed — never a previously opened one.
+ *
+ * Returns an unsubscribe function; return it from a mount effect for cleanup.
+ * No-op (returns a no-op unsubscribe) when the app is not embedded.
+ */
+export function registerAppInfo(info: { appName: string; version: string }): () => void {
+  if (!isEmbedded()) return () => {};
+  const handler = (event: MessageEvent) => {
+    if (!isFromPlatformParent(event)) return;
+    const message = appInfoDeclareFromAuth(info, event.data);
+    if (message) window.parent.postMessage(message, getParentOrigin());
+  };
+  window.addEventListener('message', handler);
+  return () => window.removeEventListener('message', handler);
 }
 
 /**
