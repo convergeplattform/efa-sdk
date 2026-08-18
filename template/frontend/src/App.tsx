@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { sendAtStart, sendDeclareAppInfo, getParentOrigin, isFromPlatformParent } from '@efa-one/sdk/frontend/ipc';
+import { sendAtStart, registerAppInfo, getParentOrigin, isFromPlatformParent } from '@efa-one/sdk/frontend/ipc';
 import { useConvergeAuth } from './hooks/useConvergeAuth';
 import DevHeader from '@efa-one/sdk/frontend/DevHeader';
 import MainPage from './pages/MainPage';
@@ -17,11 +17,12 @@ function InnerApp() {
   const isEmbedded = window.self !== window.top;
 
   // Declare app identity (name + build version) to Converge so the kernel help icon
-  // can display it. Override `appName` per app — `__APP_VERSION__` comes from the
-  // APP_VERSION Docker build arg (GHCR tag) via vite.config.ts.
-  useEffect(() => {
-    sendDeclareAppInfo({ appName: 'Template App', version: __APP_VERSION__ });
-  }, []);
+  // can display it. registerAppInfo re-declares on every CONVERGE_AUTH, tagged with the
+  // serviceKey the kernel sends, so the header always shows the currently framed app —
+  // never a previously opened one. Replace `appName` with THIS app's name (it is the
+  // help-icon identity); `__APP_VERSION__` comes from the APP_VERSION Docker build arg
+  // (GHCR tag) via vite.config.ts. registerAppInfo returns an unsubscribe for cleanup.
+  useEffect(() => registerAppInfo({ appName: 'Template App', version: __APP_VERSION__ }), []);
 
   // Declare to Converge that this app has a settings page.
   // Only sent once auth is ready and the user is an admin — non-admins should

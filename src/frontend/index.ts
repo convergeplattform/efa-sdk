@@ -5,7 +5,7 @@
  * GO_BACK, DeclareAppInfo, Navigation, Route-Change), react-i18next-Factory und
  * den Dev-Header.
  *
- * Barrel-Export: `import { sendDeclareAppInfo, initI18n, DevHeader } from '@efa-one/sdk/frontend'`.
+ * Barrel-Export: `import { registerAppInfo, initI18n, DevHeader } from '@efa-one/sdk/frontend'`.
  * Einzelmodule bleiben zusätzlich unter `@efa-one/sdk/frontend/<modul>` erreichbar.
  */
 export * from './ipc';

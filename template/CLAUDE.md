@@ -1,6 +1,6 @@
 # efa-one App Template
 
-efa-app-template-version: 1.10.0
+efa-app-template-version: 1.11.0
 
 ## What this is
 
@@ -922,18 +922,28 @@ Sonst erscheint das Zahnrad-Symbol in der efa-one-Kopfzeile für alle User – f
 
 ### CONVERGE_DECLARE_APP_INFO – App-Info für das Kernel-Hilfe-Icon
 
-Der Kernel-Header enthält ein Fragezeichen-Icon, das ein kleines Info-Modal mit **App-Name** und **aktueller Version** öffnet. Damit die Info der eingebetteten App (statt des Kernel-Fallbacks) angezeigt wird, muss die App beim Start `sendDeclareAppInfo` aufrufen.
+Der Kernel-Header enthält ein Fragezeichen-Icon, das ein kleines Info-Modal mit **App-Name** und **aktueller Version** öffnet. Damit die Info der eingebetteten App (statt des Kernel-Fallbacks) angezeigt wird, ruft die App beim Start **`registerAppInfo`** auf.
 
 ```ts
-import { sendDeclareAppInfo } from '@efa-one/sdk/frontend/ipc';
+import { registerAppInfo } from '@efa-one/sdk/frontend/ipc';
 
-useEffect(() => {
-  sendDeclareAppInfo({
-    appName: 'My App',
-    version: __APP_VERSION__,
-  });
-}, []);
+// registerAppInfo re-deklariert bei JEDEM CONVERGE_AUTH und taggt die Info mit
+// dem serviceKey, den der Kernel sendet. Rückgabe = Unsubscribe (Cleanup).
+useEffect(() => registerAppInfo({
+  appName: 'My App',
+  version: __APP_VERSION__,
+}), []);
 ```
+
+> **Warum nicht `sendDeclareAppInfo`?** Der alte Helper feuert **einmalig** beim Mount
+> und trägt **keinen** `serviceKey`. Da alle Apps dieselbe Origin teilen und der Kernel
+> den iframe wiederverwendet, kann der Kernel eine solche Deklaration nicht der aktuellen
+> App zuordnen — nach einem App-Wechsel (oder Back/Forward/bfcache) blieb im Hilfe-Icon
+> die **Version der vorher geöffneten App** stehen. `registerAppInfo` behebt das
+> strukturell: es re-deklariert bei jedem `CONVERGE_AUTH` mit dem `serviceKey`, und der
+> Kernel akzeptiert nur die zur aktuell geframten App passende. `sendDeclareAppInfo` ist
+> **@deprecated** (der Kernel ignoriert seine serviceKey-lose Payload) — neue Apps nutzen
+> ausschließlich `registerAppInfo`.
 
 **Pflicht-Setup für die Versionskopplung an den GHCR-Tag:**
 
@@ -943,7 +953,7 @@ useEffect(() => {
 - CI/CD reicht den GHCR-Image-Tag als `APP_VERSION` durch.
 - `frontend/src/vite-env.d.ts`: `declare const __APP_VERSION__: string;`.
 
-Ohne `sendDeclareAppInfo`-Aufruf zeigt das Kernel-Icon weiterhin „efa-one" + Kernel-Version (kein Fehler, nur kein App-spezifischer Inhalt).
+Ohne `registerAppInfo`-Aufruf zeigt das Kernel-Icon weiterhin „efa-one" + Kernel-Version (kein Fehler, nur kein App-spezifischer Inhalt).
 
 ## Discovery-Vertrag
 
