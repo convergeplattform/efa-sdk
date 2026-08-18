@@ -38,28 +38,18 @@ export async function apiFetch<T = unknown>(
   return res.json() as Promise<T>;
 }
 
-// ─── View Preferences (Pflicht-Helpers für DataTable) ────────────────────────
+// ─── View Preferences (Persistenz der DataTable-Ansicht) ─────────────────────
 //
-// Jede App, die die zentrale DataTable-Komponente nutzt, muss
-//   - im Backend GET/PUT/DELETE /api/view-preferences/:listId anbieten
-//     (siehe converge-template/CLAUDE.md "Listen-Verhalten").
-//   - die folgenden Helpers entweder identisch zu diesem Block bereitstellen
-//     oder direkt aus dem Template übernehmen.
-
-export async function getViewPreferences<T = unknown>(listId: string): Promise<T | null> {
-  const res = await fetch(`${getApiBase()}/api/view-preferences/${encodeURIComponent(listId)}`, {
-    credentials: 'include',
-  });
-  if (res.status === 204) return null;
-  if (!res.ok) throw new Error(`view-preferences GET ${listId} → ${res.status}`);
-  return res.json() as Promise<T>;
-}
-
-export const putViewPreferences = (listId: string, prefs: unknown): Promise<void> =>
-  apiFetch<void>(`/api/view-preferences/${encodeURIComponent(listId)}`, {
-    method: 'PUT',
-    body: JSON.stringify(prefs),
-  });
-
-export const resetViewPreferences = (listId: string): Promise<void> =>
-  apiFetch<void>(`/api/view-preferences/${encodeURIComponent(listId)}`, { method: 'DELETE' });
+// Die DataTable aus `@efa-one/sdk/frontend/ui` persistiert Spalten/Sort/Filter
+// über einen injizierten Adapter — KEINE eigenen Helper mehr hier. Verwendung:
+//
+//   import { DataTable } from '@efa-one/sdk/frontend/ui';
+//   import { createViewPreferencesClient } from '@efa-one/sdk/frontend/viewPreferences';
+//   import { getApiBase } from './convergeApi';
+//   // einmal erzeugen (stabil halten, nicht pro Render):
+//   const viewPrefs = createViewPreferencesClient({ apiBase: getApiBase });
+//   <DataTable persistence={viewPrefs} listId="items.list" … />
+//
+// Backend-Voraussetzung dafür: GET/PUT/DELETE /api/view-preferences/:listId +
+// eine `{app}_view_preferences`-Tabelle (siehe CLAUDE.md „Listen-Verhalten").
+// Ohne `persistence`-Prop läuft die DataTable rein In-Memory.

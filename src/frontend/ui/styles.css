@@ -1,0 +1,53 @@
+/**
+ * @efa-one/sdk/frontend/ui/styles.css
+ *
+ * Globale Hilfsklassen, die `Badge` und `Skeleton` aus dem SDK-ui-Kit benötigen
+ * (sie sind CSS-Klassen-basiert, nicht Tailwind-Arbitrary). Einmal pro App
+ * importieren:  import '@efa-one/sdk/frontend/ui/styles.css';
+ *
+ * Die Design-Tokens (`--color-*`, `--border-radius-*`) definiert die App selbst
+ * (Kernel-Theme-überschrieben zur Laufzeit) — hier bewusst NICHT dupliziert.
+ */
+
+/* ── Badge utilities ─────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--border-radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+}
+.badge-success {
+  background: color-mix(in srgb, var(--color-success) 15%, transparent);
+  color: var(--color-success);
+}
+.badge-warning {
+  background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+  color: var(--color-warning);
+}
+.badge-danger {
+  background: color-mix(in srgb, var(--color-danger) 15%, transparent);
+  color: var(--color-danger);
+}
+.badge-neutral {
+  background: var(--color-surface-raised);
+  color: var(--color-text-secondary);
+}
+
+/* ── Skeleton loading ────────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-raised) 25%,
+    var(--color-border) 50%,
+    var(--color-surface-raised) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--border-radius-md);
+}
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}

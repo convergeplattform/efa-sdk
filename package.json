@@ -1,6 +1,6 @@
 {
   "name": "@efa-one/sdk",
-  "version": "1.11.0",
+  "version": "1.12.0",
   "description": "Offizielles SDK für efa-one-Apps: Auth/Session, Service-Discovery, Gateway-Client, Audit/Reporting/Mail/Notifications, Permission- und Capability-Registrierung sowie das Frontend-IPC-/i18n-Toolkit.",
   "license": "Apache-2.0",
   "type": "commonjs",
@@ -20,6 +20,12 @@
       "import": "./frontend/index.js",
       "default": "./frontend/index.js"
     },
+    "./frontend/ui": {
+      "types": "./frontend/ui/index.d.ts",
+      "import": "./frontend/ui/index.js",
+      "default": "./frontend/ui/index.js"
+    },
+    "./frontend/ui/styles.css": "./frontend/ui/styles.css",
     "./frontend/*": {
       "types": "./frontend/*.d.ts",
       "import": "./frontend/*.js",
@@ -35,7 +41,7 @@
   "scripts": {
     "clean": "rm -rf backend frontend",
     "build:backend": "tsc -p tsconfig.backend.json",
-    "build:frontend": "tsc -p tsconfig.frontend.json && node -e \"require('fs').writeFileSync('frontend/package.json', JSON.stringify({type:'module'}))\"",
+    "build:frontend": "tsc -p tsconfig.frontend.json && node -e \"const fs=require('fs');fs.writeFileSync('frontend/package.json', JSON.stringify({type:'module'}));fs.copyFileSync('src/frontend/ui/styles.css','frontend/ui/styles.css')\"",
     "build": "npm run clean && npm run build:backend && npm run build:frontend",
     "typecheck": "tsc -p tsconfig.backend.json --noEmit && tsc -p tsconfig.frontend.json --noEmit",
     "test": "vitest run",
@@ -45,12 +51,17 @@
     "access": "public"
   },
   "peerDependencies": {
+    "@radix-ui/react-dialog": ">=1",
+    "@radix-ui/react-dropdown-menu": ">=1",
+    "@radix-ui/react-tooltip": ">=1",
     "express": ">=4",
     "i18next": ">=23",
     "i18next-http-backend": ">=2",
     "jsonwebtoken": ">=9",
+    "lucide-react": ">=0.400.0",
     "pg": ">=8",
     "react": ">=18",
+    "react-dom": ">=18",
     "react-i18next": ">=13"
   },
   "peerDependenciesMeta": {
@@ -66,6 +77,9 @@
     "react": {
       "optional": true
     },
+    "react-dom": {
+      "optional": true
+    },
     "i18next": {
       "optional": true
     },
@@ -74,12 +88,28 @@
     },
     "react-i18next": {
       "optional": true
+    },
+    "@radix-ui/react-dialog": {
+      "optional": true
+    },
+    "@radix-ui/react-dropdown-menu": {
+      "optional": true
+    },
+    "@radix-ui/react-tooltip": {
+      "optional": true
+    },
+    "lucide-react": {
+      "optional": true
     }
   },
   "devDependencies": {
+    "@radix-ui/react-dialog": "^1.1.4",
+    "@radix-ui/react-dropdown-menu": "^2.1.4",
+    "@radix-ui/react-tooltip": "^1.1.6",
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.6",
     "cookie-parser": "^1.4.6",
+    "lucide-react": "^0.468.0",
     "@types/node": "^20.14.0",
     "@types/pg": "^8.11.0",
     "@types/react": "^18.2.46",
@@ -90,6 +120,8 @@
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.12.0",
     "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
     "react-i18next": "^13.5.0",
     "supertest": "^7.2.2",
     "typescript": "7.0.2",

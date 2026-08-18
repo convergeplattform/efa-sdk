@@ -6,7 +6,7 @@ import DevHeader from '@efa-one/sdk/frontend/DevHeader';
 import MainPage from './pages/MainPage';
 import SettingsPage from './pages/SettingsPage';
 import WidgetPage from './pages/WidgetPage';
-import { TooltipProvider } from './components/ui';
+import { TooltipProvider } from '@efa-one/sdk/frontend/ui';
 
 // ─── Inner app (inside BrowserRouter, so useNavigate works) ──────────────────
 

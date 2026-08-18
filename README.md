@@ -13,10 +13,16 @@ sub-paths — this keeps `express` out of the frontend and `react` out of the ba
 | Import | Runs in | Contains |
 |---|---|---|
 | `@efa-one/sdk/backend` | Node/Express | Auth + token exchange (`requireAuth`, `createExchangeRouter`, `requireInternalOrAuth` …), health router, service discovery + gateway client (`serviceClient`, `resolveService`), clients for audit/reporting/mail/notifications, permission resolution/registration (`getUserPermissions`, `registerPermissions`, `checkPermission`), capability registry (`registerApiMetadata`), backend i18n |
-| `@efa-one/sdk/frontend` | Browser/React | postMessage IPC (`sendDeclareAppInfo`, `sendAtStart`, `navigateToApp`, `notifyRouteChange` …), react-i18next factory (`initI18n`), `DevHeader` |
+| `@efa-one/sdk/frontend` | Browser/React | postMessage IPC (`registerAppInfo`, `sendAtStart`, `navigateToApp`, `notifyRouteChange` …), react-i18next factory (`initI18n`), `DevHeader` |
+| `@efa-one/sdk/frontend/ui` | Browser/React | The efa-one design-system kit: `Button`, `Input`, `Badge`, `Alert`, `Dialog`, `DropdownMenu`, `Tooltip`, `EmptyState`, `Skeleton`, `RecordDialog`, and the **`DataTable`** (sortable/filterable/groupable list with per-user persisted view). Ship its companion CSS once: `import '@efa-one/sdk/frontend/ui/styles.css'` |
+| `@efa-one/sdk/frontend/viewPreferences` | Browser/React | Persistence seam for `DataTable` — `createViewPreferencesClient()` (standard `/api/view-preferences/:listId` adapter) + `useViewPreferences()` |
 
 Every individual module is also reachable directly, e.g.
 `@efa-one/sdk/backend/auth` or `@efa-one/sdk/frontend/ipc`.
+
+The `frontend/ui` kit renders against the platform design tokens (`--color-*`,
+`--border-radius-*`) and expects Tailwind in the consuming app; `lucide-react` and
+the `@radix-ui/*` primitives it uses are optional peer dependencies.
 
 > **Note on legacy prefixes:** Some platform-internal identifiers (postMessage
 > message types, environment variable names, JWT `iss`) still carry technical
@@ -49,9 +55,24 @@ app.get('/api/items', requireAuth, handler);
 
 ```tsx
 // Frontend
-import { initI18n, sendDeclareAppInfo, DevHeader } from '@efa-one/sdk/frontend';
+import { initI18n, registerAppInfo, DevHeader } from '@efa-one/sdk/frontend';
 
-sendDeclareAppInfo({ appName: 'efa-chat', version: __APP_VERSION__ });
+registerAppInfo({ appName: 'efa-chat', version: __APP_VERSION__ });
+```
+
+```tsx
+// Frontend — a fully-featured list in a few lines
+import { DataTable, type ColumnDef } from '@efa-one/sdk/frontend/ui';
+import { createViewPreferencesClient } from '@efa-one/sdk/frontend/viewPreferences';
+import '@efa-one/sdk/frontend/ui/styles.css';
+
+const viewPrefs = createViewPreferencesClient({ apiBase: getApiBase }); // create once
+const columns: ColumnDef<Item>[] = [
+  { id: 'name', label: 'Name', accessor: (r) => r.name, filter: { type: 'text' } },
+  { id: 'status', label: 'Status', accessor: (r) => r.status },
+];
+
+<DataTable listId="items.list" rows={items} columns={columns} rowKey={(r) => r.id} persistence={viewPrefs} />
 ```
 
 ## Build your first app

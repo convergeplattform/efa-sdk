@@ -1,25 +1,30 @@
 /**
- * Zentrale DataTable-Komponente.
+ * Converge DataTable — die plattformweite Listen-/Tabellen-Komponente.
  *
- * Implementiert den "Listen-Verhalten"-UX-Vertrag aus
- * converge-template/CLAUDE.md verbindlich:
+ * Implementiert den „Listen-Verhalten"-UX-Vertrag verbindlich:
  *
  *   1. Auswahl-Spalte links (Checkbox + Master) — opt-in via `selection`-Prop
  *   2. Bulk-Aktionen via `selection.bulkActions`
  *   3. Spalten-Header-Popover: Sortieren auf/ab, Filtern, Spalte ausblenden
  *   4. Zahnrad oben rechts: Spalten-Inventar mit Sichtbarkeit + Reihenfolge
- *   5. Persistente Ansicht via useViewPreferences-Hook (Pflicht: stabile listId)
- *   6. Default-Ansicht + "Zurücksetzen"-Button im Zahnrad-Popover
+ *   5. Persistente Ansicht via `useViewPreferences` (Pflicht: stabile `listId`) —
+ *      Persistenz wird über die `persistence`-Prop (ViewPreferencesAdapter)
+ *      injiziert; ohne Adapter läuft die Ansicht rein In-Memory.
+ *   6. Default-Ansicht + „Zurücksetzen"-Button im Zahnrad-Popover
  *
- * Sortierung und Filterung erfolgen clientseitig — für < 1000 Zeilen
- * vollkommen ausreichend. Bei größeren Datenmengen wäre ein Wechsel
- * auf serverseitige Sortierung/Filterung der nächste Schritt.
+ * Sortierung und Filterung erfolgen clientseitig — für < 1000 Zeilen völlig
+ * ausreichend. Bei größeren Datenmengen wäre serverseitige Sortierung/Filterung
+ * der nächste Schritt.
+ *
+ * Die Komponente erwartet die Converge-Design-Tokens (`--color-*`,
+ * `--border-radius-*`) im DOM und (für innen genutzte Klassen keine, aber ihre
+ * Geschwister `Badge`/`Skeleton`) `@efa-one/sdk/frontend/ui/styles.css`.
  */
 import React, { useMemo, useState } from 'react';
 import * as DropdownMenu from './DropdownMenu';
 import { ChevronDown, ChevronUp, ChevronRight, Settings, EyeOff, Filter, RotateCcw, ArrowUp, ArrowDown, Layers, X } from 'lucide-react';
 import { Button } from './Button';
-import { useViewPreferences } from '../../hooks/useViewPreferences';
+import { useViewPreferences, type ViewPreferencesAdapter } from '../viewPreferences';
 
 // Trennzeichen für komposite Gruppen-Keys (Unit Separator — kommt in
 // User-Text nicht vor).
@@ -51,6 +56,12 @@ interface FilterValue {
   bool?: 'true' | 'false' | null;
 }
 
+/** Version der Code-Default-Ansicht. Beim Hochzählen werden alle pro Benutzer
+ *  gespeicherten Ansichten mit älterer/fehlender Version einmalig auf den neuen
+ *  Standard zurückgesetzt (Gate in useViewPreferences). Start bei 2, weil
+ *  Bestands-Blobs kein `version`-Feld tragen (undefined !== 2 → Reset). */
+export const DEFAULT_VIEW_VERSION = 2;
+
 interface ViewPrefs {
   columnVisibility: Record<string, boolean>;
   columnOrder: string[];
@@ -59,6 +70,8 @@ interface ViewPrefs {
   /** Hierarchische Gruppierung: Reihenfolge der columnIds bestimmt die Ebenen.
    *  Leerer Array = keine Gruppierung. */
   groupBy: string[];
+  /** Schema-Version der Ansicht (siehe DEFAULT_VIEW_VERSION). */
+  version?: number;
 }
 
 export interface DataTableSelectionProps<K> {
@@ -77,13 +90,20 @@ interface DataTableProps<T, K extends string | number> {
   selection?: DataTableSelectionProps<K>;
   /** Optional überschrieben — Default berechnet sich aus columns. */
   initialPrefs?: Partial<ViewPrefs>;
-  /** Footer-Status, z.B. "128 Einträge". */
+  /** Footer-Status, z.B. „128 Einträge". */
   footer?: React.ReactNode;
+  /**
+   * Persistenz der Ansicht (Spalten/Sort/Filter/Gruppierung) pro Benutzer und
+   * `listId`. Ohne Adapter bleibt die Ansicht In-Memory (kein Backend). Für den
+   * Standard-Endpoint: `createViewPreferencesClient()` aus
+   * `@efa-one/sdk/frontend/viewPreferences`.
+   */
+  persistence?: ViewPreferencesAdapter;
 }
 
 // ─── Default-Prefs aus den Column-Definitionen ───────────────────────────────
 
-function defaultPrefsFor<T>(columns: ColumnDef<T>[], overrides?: Partial<ViewPrefs>): ViewPrefs {
+export function defaultPrefsFor<T>(columns: ColumnDef<T>[], overrides?: Partial<ViewPrefs>): ViewPrefs {
   const visibility: Record<string, boolean> = {};
   columns.forEach((c) => { visibility[c.id] = c.defaultVisible !== false; });
   return {
@@ -92,6 +112,7 @@ function defaultPrefsFor<T>(columns: ColumnDef<T>[], overrides?: Partial<ViewPre
     sort: null,
     filters: {},
     groupBy: [],
+    version: DEFAULT_VIEW_VERSION,
     ...(overrides ?? {}),
   };
 }
@@ -99,7 +120,7 @@ function defaultPrefsFor<T>(columns: ColumnDef<T>[], overrides?: Partial<ViewPre
 // ─── Gruppierung ──────────────────────────────────────────────────────────────
 
 /** Normalisiert einen Accessor-Output zum Gruppierungs-Label (Strings, Arrays joined). */
-function groupLabelOf(value: unknown): string {
+export function groupLabelOf(value: unknown): string {
   if (value == null) return '';
   if (Array.isArray(value)) return value.map(String).join(', ');
   const s = String(value).trim();
@@ -118,7 +139,7 @@ interface RenderItem<T> {
   row?: T;
 }
 
-function buildRenderItems<T>(
+export function buildRenderItems<T>(
   rows: T[],
   groupBy: string[],
   columnsById: Map<string, ColumnDef<T>>,
@@ -176,10 +197,10 @@ function buildRenderItems<T>(
 // ─── Komponente ───────────────────────────────────────────────────────────────
 
 export function DataTable<T, K extends string | number>({
-  listId, rows, columns, rowKey, onRowClick, selection, initialPrefs, footer,
+  listId, rows, columns, rowKey, onRowClick, selection, initialPrefs, footer, persistence,
 }: DataTableProps<T, K>): React.ReactElement {
   const defaultPrefs = useMemo(() => defaultPrefsFor(columns, initialPrefs), [columns, initialPrefs]);
-  const [prefs, setPrefs, reset] = useViewPreferences<ViewPrefs>(listId, defaultPrefs);
+  const [prefs, setPrefs, reset] = useViewPreferences<ViewPrefs>(listId, defaultPrefs, persistence);
 
   // Expanded-Gruppen sind bewusst NICHT in den ViewPrefs — User-Experience-
   // Entscheidung: jeder Besuch der Liste startet mit allen Gruppen zugeklappt.
@@ -340,7 +361,7 @@ export function DataTable<T, K extends string | number>({
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="border border-[var(--color-border)] rounded-lg overflow-hidden">
+    <div className="border border-[var(--color-border)]">
       {/* Bulk-Bar */}
       {selection && selection.selected.size > 0 && (
         <div

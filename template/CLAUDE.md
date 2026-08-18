@@ -1,6 +1,6 @@
 # efa-one App Template
 
-efa-app-template-version: 1.11.0
+efa-app-template-version: 1.12.0
 
 ## What this is
 
@@ -32,6 +32,8 @@ What the SDK provides:
 - `@efa-one/sdk/frontend/i18n.ts` – frontend i18n factory (react-i18next init)
 - `@efa-one/sdk/backend/i18n-backend.ts` – backend i18n helper (loadLocales, t)
 - `@efa-one/sdk/frontend/DevHeader.tsx` – dev-mode header
+- `@efa-one/sdk/frontend/ui` – das efa-one-Design-System-Kit (Button, Dialog, DropdownMenu, Tooltip, Badge, Input, Alert, EmptyState, Skeleton, RecordDialog, **DataTable**) + `@efa-one/sdk/frontend/ui/styles.css`
+- `@efa-one/sdk/frontend/viewPreferences` – Persistenz-Adapter der `DataTable` (`createViewPreferencesClient`, `useViewPreferences`)
 
 ### Externe Abhängigkeiten — erst prüfen, dann aufnehmen
 Keine neue npm-Dependency (oder OS-/`apk`-Paket) wird eingebaut, ohne sie vorher zu
@@ -298,11 +300,24 @@ Both clients are fire-and-forget. If `REPORTING_URL` / `AUDIT_URL` is not set, c
 
 ## UI components
 
-Pre-built, efa-one-themed components are in `frontend/src/components/ui/`.
+Das efa-one-Design-System-Kit kommt aus dem SDK: **`@efa-one/sdk/frontend/ui`**
+(nicht mehr als vendored Kopie im App-Repo). So propagieren Fixes/Features am Kit
+per SDK-Version-Bump in alle Apps.
 
 ```tsx
-import { Button, Badge, Dialog, DropdownMenu, Tooltip, EmptyState, Skeleton } from '../components/ui';
+import { Button, Badge, Dialog, DropdownMenu, Tooltip, EmptyState, Skeleton, RecordDialog, Alert, DataTable } from '@efa-one/sdk/frontend/ui';
 ```
+
+**Einmal pro App** die Begleit-Styles importieren (liefert die `.badge`/`.skeleton`-
+Klassen + Shimmer-Keyframes) — im Template steht das bereits in `main.tsx`:
+
+```tsx
+import '@efa-one/sdk/frontend/ui/styles.css';
+```
+
+Voraussetzung im Consumer (liefert das Scaffold mit): die Design-Tokens
+(`--color-*`, `--border-radius-*`, aus `converge-tokens.css`, kernel-runtime-
+überschrieben) + das Tailwind-Radius-Mapping (`tailwind.config.js`).
 
 | Component | When to use |
 |---|---|
@@ -315,6 +330,7 @@ import { Button, Badge, Dialog, DropdownMenu, Tooltip, EmptyState, Skeleton } fr
 | `Tooltip` | Hints on icon-only buttons. |
 | `EmptyState` | Every list/table that can have zero items. |
 | `Skeleton` | Initial data loading — not for button submit states (use `Button loading` instead). |
+| `DataTable` | **Pflicht** für jede Liste/Tabelle (siehe „Listen-Verhalten" weiter unten). |
 
 **Icons:** import from `frontend/src/lib/icons.ts` for the curated set, or directly from `lucide-react`.
 Sizes: `w-4 h-4` inline, `w-5 h-5` standalone. Never use other icon libraries.
@@ -452,7 +468,7 @@ Read-/Edit-Verhalten implementieren. Die Komponente `RecordDialog` aus
 **Verwendung (`RecordDialog`):**
 
 ```tsx
-import { RecordDialog } from '../components/ui';
+import { RecordDialog } from '@efa-one/sdk/frontend/ui';
 
 const [open, setOpen] = useState<{ id: string; item?: Item } | null>(null);
 const [form, setForm] = useState<Partial<Item>>({});
@@ -563,22 +579,39 @@ Fehler **nie** als weggescrolltes Element oben im `editContent` und **nie** mit
 Jede Liste/Tabelle innerhalb einer efa-app **muss** den folgenden
 einheitlichen UX-Vertrag erfüllen — **ohne Ausnahme**.
 
-Die zentrale `components/ui/DataTable.tsx` liegt nun im Template
-(zusammen mit dem Hook `hooks/useViewPreferences.ts` und den API-Helpers
-in `src/api.ts`). Neue Apps importieren sie aus `components/ui/`:
+Die zentrale `DataTable` kommt aus dem SDK — **`@efa-one/sdk/frontend/ui`**
+(kein vendored `components/ui/DataTable.tsx` + `hooks/useViewPreferences.ts` mehr;
+Fixes/Features propagieren per SDK-Version-Bump in alle Apps):
 
 ```tsx
-import { DataTable, type ColumnDef } from '../components/ui';
+import { DataTable, type ColumnDef } from '@efa-one/sdk/frontend/ui';
+import { createViewPreferencesClient } from '@efa-one/sdk/frontend/viewPreferences';
+import { getApiBase } from '../convergeApi';
+
+// Persistenz-Adapter EINMAL erzeugen (stabil halten, nicht pro Render):
+const viewPrefs = createViewPreferencesClient({ apiBase: getApiBase });
+
+<DataTable
+  listId="items.list"
+  rows={rows}
+  columns={columns}
+  rowKey={(r) => r.id}
+  persistence={viewPrefs}   // ohne diese Prop: Ansicht rein In-Memory
+/>
 ```
 
-Backend-seitig braucht jede verwendende App
+Die Ansicht (Spalten/Sort/Filter/Gruppierung) persistiert der injizierte
+`persistence`-Adapter. Der Standard-Client spricht den plattformweiten Endpoint
+`GET/PUT/DELETE /api/view-preferences/:listId`. Backend-seitig braucht jede
+verwendende App daher:
 - DB-Tabelle `{app}_view_preferences` in `schema.sql`
-- Route `routes/viewPreferences.ts` mit GET/PUT/DELETE
-  `/api/view-preferences/:listId`
+- Route `routes/viewPreferences.ts` mit GET/PUT/DELETE `/api/view-preferences/:listId`
 
 als 1:1-Vorlage siehe
 [`apps/converge-textbausteine/backend/src/routes/viewPreferences.ts`](../../apps/converge-textbausteine/backend/src/routes/viewPreferences.ts)
-und das Tabellen-DDL im Backend-`schema.sql` derselben App.
+und das Tabellen-DDL im Backend-`schema.sql` derselben App. (Ohne
+`persistence`-Prop läuft die DataTable auch ohne dieses Backend — dann nur nicht
+persistent.)
 
 **Verzicht ist kein Default mehr.** Wer eine neue Liste schreibt und den
 Vertrag nicht erfüllt, baut sie noch einmal — das ist explizit beschlossen,
@@ -609,9 +642,10 @@ nachdem mehrere Apps inkonsistente Listen produziert haben.
 5. **Benutzer-persistierte Ansicht:** Spalten-Sichtbarkeit, -Reihenfolge,
    aktive Sortierung und aktive Filter werden **pro Liste pro User**
    persistiert. Persistenz **App-lokal in der App-DB** über die Tabelle
-   `view_preferences` (Schema-Vorschlag siehe BACKLOG-Eintrag) und den
-   scaffold-lokalen Hook `frontend/src/hooks/useViewPreferences.ts`. Keine zentrale
-   Kernel-Tabelle, keine `localStorage`-Persistenz.
+   `{app}_view_preferences` und den injizierten `persistence`-Adapter der
+   `DataTable` (`createViewPreferencesClient` aus
+   `@efa-one/sdk/frontend/viewPreferences`). Keine zentrale Kernel-Tabelle,
+   keine `localStorage`-Persistenz.
 6. **Default-Ansicht + „Zurücksetzen":** Jede Liste deklariert ihre
    Default-Konfiguration im Code. Ein „Zurücksetzen"-Button im
    Zahnrad-Popover stellt die Default-Ansicht wieder her **und** löscht
@@ -630,9 +664,10 @@ bei Refactorings.
 **Frontend-Mindestanforderung:**
 
 - Spalten als `ColumnDef[]` mit stabilen `id`s deklarieren (Werte werden persistiert)
-- `useViewPreferences(listId, defaults)`-Hook für Persistenz
-- Spalten-Header als Radix-DropdownMenu mit Sortier-/Filter-/Ausblenden-Optionen
-- Zahnrad-Button rechts in der Header-Zeile für Spalten-Inventar + Zurücksetzen
+- `DataTable` aus `@efa-one/sdk/frontend/ui` mit stabiler `listId` verwenden
+- `persistence={createViewPreferencesClient({ apiBase: getApiBase })}` für die
+  benutzer-persistierte Ansicht (Sortier-/Filter-/Ausblenden-Popover + Zahnrad-
+  Spalten-Inventar + Zurücksetzen liefert die Komponente bereits)
 
 ## Network rules (do not change)
 
