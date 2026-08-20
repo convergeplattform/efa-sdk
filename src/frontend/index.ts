@@ -9,5 +9,6 @@
  * Einzelmodule bleiben zusätzlich unter `@efa-one/sdk/frontend/<modul>` erreichbar.
  */
 export * from './ipc.js';
+export { useIsMobile, MOBILE_QUERY } from './useIsMobile.js';
 export * from './i18n.js';
 export { default as DevHeader } from './DevHeader.js';

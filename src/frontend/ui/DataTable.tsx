@@ -16,6 +16,15 @@
  * ausreichend. Bei größeren Datenmengen wäre serverseitige Sortierung/Filterung
  * der nächste Schritt.
  *
+ * **Mobil (≤640px, {@link useIsMobile}):** die Grid-Kopfzeile mit den
+ * Popover-Triggern passt auf ~330px nicht und ist auf 40px breiten Zellen auch
+ * nicht bedienbar. Stattdessen rendert die Tabelle eine kompakte Toolbar
+ * („Alle" + Zahnrad) und jede Zeile als gestapelte Label/Wert-Karte. Sortieren
+ * und Filtern laufen dort über das Zahnrad bzw. die seiteneigene Filter-Leiste.
+ * Der Desktop-Zweig bleibt unverändert; zusätzlich fängt ein
+ * `overflow-x-auto`-Container schmale Fenster ab, damit ein zu breites Grid in
+ * sich scrollt statt das ganze Dokument seitwärts zu kippen.
+ *
  * Die Komponente erwartet die Converge-Design-Tokens (`--color-*`,
  * `--border-radius-*`) im DOM und (für innen genutzte Klassen keine, aber ihre
  * Geschwister `Badge`/`Skeleton`) `@efa-one/sdk/frontend/ui/styles.css`.
@@ -25,6 +34,7 @@ import * as DropdownMenu from './DropdownMenu.js';
 import { ChevronDown, ChevronUp, ChevronRight, Settings, EyeOff, Filter, RotateCcw, ArrowUp, ArrowDown, Layers, X } from 'lucide-react';
 import { Button } from './Button.js';
 import { useViewPreferences, type ViewPreferencesAdapter } from '../viewPreferences.js';
+import { useIsMobile } from '../useIsMobile.js';
 
 // Trennzeichen für komposite Gruppen-Keys (Unit Separator — kommt in
 // User-Text nicht vor).
@@ -201,6 +211,8 @@ export function DataTable<T, K extends string | number>({
 }: DataTableProps<T, K>): React.ReactElement {
   const defaultPrefs = useMemo(() => defaultPrefsFor(columns, initialPrefs), [columns, initialPrefs]);
   const [prefs, setPrefs, reset] = useViewPreferences<ViewPrefs>(listId, defaultPrefs, persistence);
+  // Karten-Reflow statt Grid — siehe Doc-Header.
+  const isMobile = useIsMobile();
 
   // Expanded-Gruppen sind bewusst NICHT in den ViewPrefs — User-Experience-
   // Entscheidung: jeder Besuch der Liste startet mit allen Gruppen zugeklappt.
@@ -360,8 +372,27 @@ export function DataTable<T, K extends string | number>({
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
+  // Zahnrad (Spalten-/Gruppen-Konfiguration) — mobil sitzt es in der kompakten
+  // Toolbar, sonst in der Grid-Kopfzeile. Einmal gebaut, zweimal platziert.
+  const gearButton = (
+    <ColumnInventoryButton
+      columns={columns}
+      prefs={prefs}
+      setColumnVisible={setColumnVisible}
+      moveColumn={moveColumn}
+      reset={reset}
+      groupBy={groupBy}
+      addGroupBy={addGroupBy}
+      removeGroupBy={removeGroupBy}
+      moveGroupBy={moveGroupBy}
+      clearGroupBy={clearGroupBy}
+    />
+  );
+
   return (
-    <div className="border border-[var(--color-border)]">
+    // overflow-x-auto: ein zu breites Grid scrollt IN SICH statt das ganze
+    // Dokument seitwärts zu kippen (zusammen mit `min-w-min` an den Grid-Zeilen).
+    <div className="border border-[var(--color-border)] overflow-x-auto">
       {/* Bulk-Bar */}
       {selection && selection.selected.size > 0 && (
         <div
@@ -381,92 +412,106 @@ export function DataTable<T, K extends string | number>({
         </div>
       )}
 
-      {/* Header */}
-      <div
-        className="grid items-center px-3 py-2 text-xs font-medium border-b border-[var(--color-border)]"
-        style={{ gridTemplateColumns: gridTemplate, background: 'var(--color-surface-raised)' }}
-      >
-        {selection && (
-          <input
-            type="checkbox"
-            checked={allSelected}
-            onChange={toggleAll}
-            aria-label="Alle auswählen"
-          />
-        )}
-        {visibleColumns.map((col) => {
-          const activeSort = prefs.sort?.columnId === col.id ? prefs.sort.direction : null;
-          const filterValue = prefs.filters[col.id];
-          const isFiltered = filterValue != null;
-          return (
-            <DropdownMenu.Root key={col.id}>
-              <DropdownMenu.Trigger asChild>
-                <button
-                  type="button"
-                  className="flex items-center gap-1 px-1 py-0.5 hover:bg-[var(--color-surface)] text-left"
-                  style={{ borderRadius: 'var(--border-radius-md)' }}
-                >
-                  <span>{col.label}</span>
-                  {activeSort === 'asc' && <ChevronUp className="w-3 h-3" />}
-                  {activeSort === 'desc' && <ChevronDown className="w-3 h-3" />}
-                  {isFiltered && <Filter className="w-3 h-3 text-[var(--color-primary)]" />}
-                </button>
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Content className="min-w-[220px] p-1">
-                {col.sortable !== false && (
-                  <>
-                    <DropdownMenu.Item onSelect={() => setSort(col.id, 'asc')}>
-                      <ArrowUp className="w-4 h-4" />Sortieren A→Z
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item onSelect={() => setSort(col.id, 'desc')}>
-                      <ArrowDown className="w-4 h-4" />Sortieren Z→A
-                    </DropdownMenu.Item>
-                    {activeSort && (
-                      <DropdownMenu.Item onSelect={clearSort}>
-                        Sortierung zurücksetzen
+      {/* Mobil-Toolbar: die breite Spalten-Kopfzeile passt nicht und wäre auf
+          40px-Zellen ohnehin nicht bedienbar — stattdessen „Alle auswählen"
+          (falls Selection) + Zahnrad (Spalten/Gruppieren/Sortieren/Reset). */}
+      {isMobile ? (
+        <div
+          className="flex items-center gap-3 px-3 py-2 text-xs font-medium border-b border-[var(--color-border)]"
+          style={{ background: 'var(--color-surface-raised)' }}
+        >
+          {selection && (
+            <label className="flex items-center gap-2 py-2 pr-2 cursor-pointer">
+              <input
+                type="checkbox"
+                className="w-5 h-5"
+                checked={allSelected}
+                onChange={toggleAll}
+                aria-label="Alle auswählen"
+              />
+              <span className="text-[var(--color-text-muted)]">Alle</span>
+            </label>
+          )}
+          <div className="flex-1" />
+          {gearButton}
+        </div>
+      ) : (
+        /* Header (Desktop) */
+        <div
+          className="grid items-center min-w-min px-3 py-2 text-xs font-medium border-b border-[var(--color-border)]"
+          style={{ gridTemplateColumns: gridTemplate, background: 'var(--color-surface-raised)' }}
+        >
+          {selection && (
+            <input
+              type="checkbox"
+              checked={allSelected}
+              onChange={toggleAll}
+              aria-label="Alle auswählen"
+            />
+          )}
+          {visibleColumns.map((col) => {
+            const activeSort = prefs.sort?.columnId === col.id ? prefs.sort.direction : null;
+            const filterValue = prefs.filters[col.id];
+            const isFiltered = filterValue != null;
+            return (
+              <DropdownMenu.Root key={col.id}>
+                <DropdownMenu.Trigger asChild>
+                  <button
+                    type="button"
+                    className="flex items-center gap-1 px-1 py-0.5 hover:bg-[var(--color-surface)] text-left"
+                    style={{ borderRadius: 'var(--border-radius-md)' }}
+                  >
+                    <span>{col.label}</span>
+                    {activeSort === 'asc' && <ChevronUp className="w-3 h-3" />}
+                    {activeSort === 'desc' && <ChevronDown className="w-3 h-3" />}
+                    {isFiltered && <Filter className="w-3 h-3 text-[var(--color-primary)]" />}
+                  </button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Content className="min-w-[220px] p-1">
+                  {col.sortable !== false && (
+                    <>
+                      <DropdownMenu.Item onSelect={() => setSort(col.id, 'asc')}>
+                        <ArrowUp className="w-4 h-4" />Sortieren A→Z
                       </DropdownMenu.Item>
-                    )}
-                    <DropdownMenu.Separator />
-                  </>
-                )}
-                {groupBy.includes(col.id) ? (
-                  <DropdownMenu.Item onSelect={() => removeGroupBy(col.id)}>
-                    <Layers className="w-4 h-4" />Gruppierung aufheben
+                      <DropdownMenu.Item onSelect={() => setSort(col.id, 'desc')}>
+                        <ArrowDown className="w-4 h-4" />Sortieren Z→A
+                      </DropdownMenu.Item>
+                      {activeSort && (
+                        <DropdownMenu.Item onSelect={clearSort}>
+                          Sortierung zurücksetzen
+                        </DropdownMenu.Item>
+                      )}
+                      <DropdownMenu.Separator />
+                    </>
+                  )}
+                  {groupBy.includes(col.id) ? (
+                    <DropdownMenu.Item onSelect={() => removeGroupBy(col.id)}>
+                      <Layers className="w-4 h-4" />Gruppierung aufheben
+                    </DropdownMenu.Item>
+                  ) : (
+                    <DropdownMenu.Item onSelect={() => addGroupBy(col.id)}>
+                      <Layers className="w-4 h-4" />Nach dieser Spalte gruppieren
+                    </DropdownMenu.Item>
+                  )}
+                  <DropdownMenu.Separator />
+                  {col.filter && (
+                    <FilterEditor
+                      column={col}
+                      value={filterValue}
+                      onChange={(v) => setFilter(col.id, v)}
+                    />
+                  )}
+                  <DropdownMenu.Item onSelect={() => setColumnVisible(col.id, false)} variant="danger">
+                    <EyeOff className="w-4 h-4" />Spalte ausblenden
                   </DropdownMenu.Item>
-                ) : (
-                  <DropdownMenu.Item onSelect={() => addGroupBy(col.id)}>
-                    <Layers className="w-4 h-4" />Nach dieser Spalte gruppieren
-                  </DropdownMenu.Item>
-                )}
-                <DropdownMenu.Separator />
-                {col.filter && (
-                  <FilterEditor
-                    column={col}
-                    value={filterValue}
-                    onChange={(v) => setFilter(col.id, v)}
-                  />
-                )}
-                <DropdownMenu.Item onSelect={() => setColumnVisible(col.id, false)} variant="danger">
-                  <EyeOff className="w-4 h-4" />Spalte ausblenden
-                </DropdownMenu.Item>
-              </DropdownMenu.Content>
-            </DropdownMenu.Root>
-          );
-        })}
-        {/* Zahnrad-Spalte: Spalten-Inventar + Gruppieren-Sektion */}
-        <ColumnInventoryButton
-          columns={columns}
-          prefs={prefs}
-          setColumnVisible={setColumnVisible}
-          moveColumn={moveColumn}
-          reset={reset}
-          groupBy={groupBy}
-          addGroupBy={addGroupBy}
-          removeGroupBy={removeGroupBy}
-          moveGroupBy={moveGroupBy}
-          clearGroupBy={clearGroupBy}
-        />
-      </div>
+                </DropdownMenu.Content>
+              </DropdownMenu.Root>
+            );
+          })}
+          {/* Zahnrad-Spalte: Spalten-Inventar + Gruppieren-Sektion */}
+          {gearButton}
+        </div>
+      )}
 
       {/* Rows (ggf. gruppiert) */}
       {sortedFilteredRows.length === 0 ? (
@@ -505,10 +550,51 @@ export function DataTable<T, K extends string | number>({
           const isChecked = selection?.selected.has(key) ?? false;
           // Indentation der Daten-Rows passend zur letzten Gruppen-Ebene.
           const rowIndent = groupBy.length > 0 ? 12 + groupBy.length * 18 : undefined;
+
+          // Mobil: Zeile als gestapelte Label/Wert-Karte statt Grid-Zeile. Die
+          // Spaltenauswahl (Zahnrad) wirkt weiter — ausgeblendete Spalten
+          // erscheinen auch in der Karte nicht.
+          if (isMobile) {
+            return (
+              <div
+                key={`r:${String(key)}:${idx}`}
+                className={`flex flex-col gap-1.5 px-3 py-3 border-b border-[var(--color-border)] ${onRowClick ? 'cursor-pointer hover:bg-[var(--color-surface-raised)]' : ''}`}
+                style={{ background: isChecked ? 'rgba(99,102,241,0.07)' : undefined, paddingLeft: rowIndent }}
+                onClick={() => onRowClick?.(row)}
+              >
+                {selection && (
+                  <label
+                    className="flex items-center gap-2 self-start py-1 pr-2 cursor-pointer"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <input
+                      type="checkbox"
+                      className="w-5 h-5"
+                      checked={isChecked}
+                      onChange={() => toggleOne(key)}
+                      aria-label="Zeile auswählen"
+                    />
+                    <span className="text-xs text-[var(--color-text-muted)]">Auswählen</span>
+                  </label>
+                )}
+                {visibleColumns.map((col) => (
+                  <div key={col.id} className="flex flex-col gap-0.5">
+                    <span className="text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">
+                      {col.label}
+                    </span>
+                    <div className="min-w-0 break-words text-sm">
+                      {col.cell ? col.cell(row) : String(col.accessor(row) ?? '')}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          }
+
           return (
             <div
               key={`r:${String(key)}:${idx}`}
-              className={`grid items-center px-3 py-2 text-sm border-b border-[var(--color-border)] ${onRowClick ? 'cursor-pointer hover:bg-[var(--color-surface-raised)]' : ''}`}
+              className={`grid items-center min-w-min px-3 py-2 text-sm border-b border-[var(--color-border)] ${onRowClick ? 'cursor-pointer hover:bg-[var(--color-surface-raised)]' : ''}`}
               style={{
                 gridTemplateColumns: gridTemplate,
                 background: isChecked ? 'rgba(99,102,241,0.07)' : undefined,
@@ -686,7 +772,7 @@ function ColumnInventoryButton<T>({
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
-          className="p-1 hover:bg-[var(--color-surface)] text-[var(--color-text-muted)] justify-self-end"
+          className="p-2.5 sm:p-1 hover:bg-[var(--color-surface)] text-[var(--color-text-muted)] justify-self-end"
           title="Spalten konfigurieren"
           style={{ borderRadius: 'var(--border-radius-md)' }}
         >
@@ -712,7 +798,7 @@ function ColumnInventoryButton<T>({
                     type="button"
                     disabled={idx === 0}
                     onClick={() => moveGroupBy(id, -1)}
-                    className="p-0.5 disabled:opacity-30 hover:bg-[var(--color-surface-raised)]"
+                    className="p-2 sm:p-0.5 disabled:opacity-30 hover:bg-[var(--color-surface-raised)]"
                     title="Ebene hoch"
                     style={{ borderRadius: 'var(--border-radius-md)' }}
                   >
@@ -722,7 +808,7 @@ function ColumnInventoryButton<T>({
                     type="button"
                     disabled={idx === groupBy.length - 1}
                     onClick={() => moveGroupBy(id, 1)}
-                    className="p-0.5 disabled:opacity-30 hover:bg-[var(--color-surface-raised)]"
+                    className="p-2 sm:p-0.5 disabled:opacity-30 hover:bg-[var(--color-surface-raised)]"
                     title="Ebene runter"
                     style={{ borderRadius: 'var(--border-radius-md)' }}
                   >
@@ -731,7 +817,7 @@ function ColumnInventoryButton<T>({
                   <button
                     type="button"
                     onClick={() => removeGroupBy(id)}
-                    className="p-0.5 text-[var(--color-text-muted)] hover:text-[var(--color-danger)]"
+                    className="p-2 sm:p-0.5 text-[var(--color-text-muted)] hover:text-[var(--color-danger)]"
                     title="Diese Ebene entfernen"
                     style={{ borderRadius: 'var(--border-radius-md)' }}
                   >
@@ -794,7 +880,7 @@ function ColumnInventoryButton<T>({
                 type="button"
                 disabled={idx === 0}
                 onClick={() => moveColumn(col.id, -1)}
-                className="p-0.5 disabled:opacity-30 hover:bg-[var(--color-surface-raised)]"
+                className="p-2 sm:p-0.5 disabled:opacity-30 hover:bg-[var(--color-surface-raised)]"
                 title="Nach oben"
                 style={{ borderRadius: 'var(--border-radius-md)' }}
               >
@@ -804,7 +890,7 @@ function ColumnInventoryButton<T>({
                 type="button"
                 disabled={idx === orderedColumns.length - 1}
                 onClick={() => moveColumn(col.id, 1)}
-                className="p-0.5 disabled:opacity-30 hover:bg-[var(--color-surface-raised)]"
+                className="p-2 sm:p-0.5 disabled:opacity-30 hover:bg-[var(--color-surface-raised)]"
                 title="Nach unten"
                 style={{ borderRadius: 'var(--border-radius-md)' }}
               >

@@ -21,6 +21,7 @@ export { Tooltip, TooltipProvider } from './Tooltip.js';
 export { EmptyState } from './EmptyState.js';
 export { Skeleton, SkeletonRow } from './Skeleton.js';
 export { RecordDialog, type RecordDialogMode } from './RecordDialog.js';
+export { useIsMobile, MOBILE_QUERY } from '../useIsMobile.js';
 export {
   DataTable,
   DEFAULT_VIEW_VERSION,

@@ -651,6 +651,18 @@ nachdem mehrere Apps inkonsistente Listen produziert haben.
    Zahnrad-Popover stellt die Default-Ansicht wieder her **und** löscht
    den persistierten Eintrag für diese `list_id` aus `view_preferences`.
 
+7. **Mobil (≤ 640px) automatisch als Karten:** Die `DataTable` erkennt die
+   Mobil-Schwelle selbst (`useIsMobile`, `max-width: 640px` = Tailwind `sm`) und
+   rendert dann statt des Spalten-Grids je Zeile eine **gestapelte Label/Wert-Karte**;
+   die Grid-Kopfzeile weicht einer kompakten Toolbar („Alle" + Zahnrad). Die
+   Spaltenauswahl wirkt weiter — ausgeblendete Spalten erscheinen auch in der Karte
+   nicht. **Apps müssen dafür nichts tun** und dürfen den Zweig nicht nachbauen:
+   kein eigenes `useIsMobile ? <Cards/> : <DataTable/>`. Wer `width`-Angaben an
+   Spalten vergibt, plant nur den Desktop — mobil sind sie wirkungslos.
+   Der Hook ist zusätzlich als `useIsMobile` aus `@efa-one/sdk/frontend/ui`
+   exportiert; App-lokale Kopien davon sind abzulösen, damit die Schwelle
+   plattformweit an einer Stelle steht.
+
 **Pflichtfeld pro Liste:** stabile `list_id` (z. B. `'invoices.list'`,
 `'users.list'`) als Schlüssel für `view_preferences`. Niemals zufällige
 oder UI-Pfad-abhängige IDs verwenden — sonst verlieren User ihre Ansicht
