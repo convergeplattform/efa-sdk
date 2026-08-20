@@ -27,7 +27,7 @@ export const Content = React.forwardRef<
     <Radix.Content
       ref={ref}
       sideOffset={sideOffset}
-      className={`z-50 min-w-[160px] rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-1 shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 ${className}`}
+      className={`z-50 min-w-[160px] max-w-[calc(100vw-2rem)] rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-1 shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 ${className}`}
       {...props}
     />
   </Radix.Portal>
@@ -42,7 +42,7 @@ export const Item = React.forwardRef<React.ElementRef<typeof Radix.Item>, ItemPr
   ({ className = '', variant = 'default', ...props }, ref) => (
     <Radix.Item
       ref={ref}
-      className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-md cursor-pointer outline-none select-none transition-colors data-[disabled]:opacity-50 data-[disabled]:pointer-events-none ${
+      className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-sm cursor-pointer outline-none select-none transition-colors data-[disabled]:opacity-50 data-[disabled]:pointer-events-none ${
         variant === 'danger'
           ? 'text-[var(--color-danger)] data-[highlighted]:bg-[var(--color-surface-raised)]'
           : 'text-[var(--color-text-primary)] data-[highlighted]:bg-[var(--color-surface-raised)]'

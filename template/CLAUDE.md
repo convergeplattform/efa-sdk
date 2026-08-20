@@ -1,6 +1,6 @@
 # efa-one App Template
 
-efa-app-template-version: 1.12.0
+efa-app-template-version: 1.13.0
 
 ## What this is
 
@@ -324,7 +324,7 @@ Voraussetzung im Consumer (liefert das Scaffold mit): die Design-Tokens
 | `Button` | All buttons — variants: `primary`, `secondary`, `danger`, `ghost`. Pass `loading` for spinner. |
 | `Badge` | Status labels — variants: `success`, `warning`, `danger`, `neutral`. |
 | `Alert` | Fehler-/Status-**Banner** in Formularen/Dialogen — variants: `error`, `success`, `warning`, `info`; `onDismiss` für „×". Nie handgerollt (Kontrast-Falle, siehe Regel unten). |
-| `Dialog` | Confirmations, forms in modal. Always use for destructive actions. |
+| `Dialog` | Confirmations, forms in modal. Always use for destructive actions. Breite über `size` (`sm`…`5xl`, Default `md`) — nicht per `className` überschreiben. |
 | `RecordDialog` | **Pflicht** für Detail-Ansichten von Listen-Einträgen (siehe „Detail-Dialog-Pattern" weiter unten). |
 | `DropdownMenu` | Context menus, "more" menus (MoreHorizontal icon). |
 | `Tooltip` | Hints on icon-only buttons. |

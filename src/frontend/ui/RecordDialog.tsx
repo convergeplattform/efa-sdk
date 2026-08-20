@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Pencil } from 'lucide-react';
-import { Dialog, DialogClose } from './Dialog';
-import { Button } from './Button';
-import { Alert } from './Alert';
+import { Dialog, DialogClose } from './Dialog.js';
+import { Button } from './Button.js';
+import { Alert } from './Alert.js';
 
 export type RecordDialogMode = 'read' | 'edit' | 'create';
 

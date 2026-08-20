@@ -21,10 +21,10 @@
  * Geschwister `Badge`/`Skeleton`) `@efa-one/sdk/frontend/ui/styles.css`.
  */
 import React, { useMemo, useState } from 'react';
-import * as DropdownMenu from './DropdownMenu';
+import * as DropdownMenu from './DropdownMenu.js';
 import { ChevronDown, ChevronUp, ChevronRight, Settings, EyeOff, Filter, RotateCcw, ArrowUp, ArrowDown, Layers, X } from 'lucide-react';
-import { Button } from './Button';
-import { useViewPreferences, type ViewPreferencesAdapter } from '../viewPreferences';
+import { Button } from './Button.js';
+import { useViewPreferences, type ViewPreferencesAdapter } from '../viewPreferences.js';
 
 // Trennzeichen für komposite Gruppen-Keys (Unit Separator — kommt in
 // User-Text nicht vor).

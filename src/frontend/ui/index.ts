@@ -11,20 +11,20 @@
  * `--border-radius-*`) im DOM + Tailwind (Radius-Mapping auf die Vars) — beides
  * liefert das App-Scaffold (`converge-tokens.css` + `tailwind.config.js`).
  */
-export { Button } from './Button';
-export { Input } from './Input';
-export { Badge } from './Badge';
-export { Alert, type AlertVariant } from './Alert';
-export { Dialog, DialogClose } from './Dialog';
-export * as DropdownMenu from './DropdownMenu';
-export { Tooltip, TooltipProvider } from './Tooltip';
-export { EmptyState } from './EmptyState';
-export { Skeleton, SkeletonRow } from './Skeleton';
-export { RecordDialog, type RecordDialogMode } from './RecordDialog';
+export { Button } from './Button.js';
+export { Input } from './Input.js';
+export { Badge } from './Badge.js';
+export { Alert, type AlertVariant } from './Alert.js';
+export { Dialog, DialogClose } from './Dialog.js';
+export * as DropdownMenu from './DropdownMenu.js';
+export { Tooltip, TooltipProvider } from './Tooltip.js';
+export { EmptyState } from './EmptyState.js';
+export { Skeleton, SkeletonRow } from './Skeleton.js';
+export { RecordDialog, type RecordDialogMode } from './RecordDialog.js';
 export {
   DataTable,
   DEFAULT_VIEW_VERSION,
   type ColumnDef,
   type FilterDef,
   type DataTableSelectionProps,
-} from './DataTable';
+} from './DataTable.js';

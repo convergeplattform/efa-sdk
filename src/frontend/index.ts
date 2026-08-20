@@ -8,6 +8,6 @@
  * Barrel-Export: `import { registerAppInfo, initI18n, DevHeader } from '@efa-one/sdk/frontend'`.
  * Einzelmodule bleiben zusätzlich unter `@efa-one/sdk/frontend/<modul>` erreichbar.
  */
-export * from './ipc';
-export * from './i18n';
-export { default as DevHeader } from './DevHeader';
+export * from './ipc.js';
+export * from './i18n.js';
+export { default as DevHeader } from './DevHeader.js';

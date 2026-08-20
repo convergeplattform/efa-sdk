@@ -21,7 +21,7 @@ export function Tooltip({ content, children, side = 'top', delayDuration = 300 }
         <RadixTooltip.Content
           side={side}
           sideOffset={6}
-          className="z-50 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs text-[var(--color-text-primary)] shadow-md animate-in fade-in-0 zoom-in-95"
+          className="z-50 rounded-sm border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs text-[var(--color-text-primary)] shadow-md animate-in fade-in-0 zoom-in-95"
         >
           {content}
           <RadixTooltip.Arrow className="fill-[var(--color-border)]" />
