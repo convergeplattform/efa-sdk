@@ -9,6 +9,13 @@ interface DialogProps {
   title: string;
   description?: string;
   children: React.ReactNode;
+  /**
+   * Fest stehender Bereich zwischen Header und scrollendem Body — gedacht für
+   * Fehler-/Validierungsbanner. Muss sichtbar bleiben, egal wie weit der Body
+   * gescrollt ist (Design-System: „Sichtbar am Ort der Aktion"). Ein Banner in
+   * `children` würde beim Scrollen wegrutschen.
+   */
+  banner?: React.ReactNode;
   footer?: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl';
 }
@@ -19,7 +26,7 @@ const SIZE_CLASS: Record<NonNullable<DialogProps['size']>, string> = {
   '4xl': 'max-w-4xl', '5xl': 'max-w-5xl',
 };
 
-export function Dialog({ open, onOpenChange, trigger, title, description, children, footer, size = 'md' }: DialogProps) {
+export function Dialog({ open, onOpenChange, trigger, title, description, children, banner, footer, size = 'md' }: DialogProps) {
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       {trigger && <RadixDialog.Trigger asChild>{trigger}</RadixDialog.Trigger>}
@@ -28,12 +35,27 @@ export function Dialog({ open, onOpenChange, trigger, title, description, childr
         {/* Overlay */}
         <RadixDialog.Overlay className="fixed inset-0 bg-black/40 z-40 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
 
-        {/* Content */}
+        {/*
+          Content — höhenbegrenzt und intern scrollend.
+
+          Der Dialog ist vertikal zentriert (`-translate-y-1/2`). Ohne Deckel
+          wächst er bei langem Inhalt (lange Formulare, aufklappende Listen,
+          viel Text) über den Viewport hinaus: oben rutscht der Titel weg,
+          unten der Footer — und damit der Speichern-Button aus dem Fenster.
+          Deshalb `max-h-[90vh]` + Spalten-Flex; gescrollt wird ausschließlich
+          im Body, Header und Footer bleiben stehen.
+
+          Absichtlich KEIN `flex-1` am Body: in einem höhen-auto Flex-Container
+          hätte er mit `flex-basis: 0%` die hypothetische Höhe 0 und der Dialog
+          würde auf Header+Footer zusammenfallen. Der Body bleibt inhalts-hoch
+          und schrumpft erst am Deckel (`min-h-0` macht das Schrumpfen unter die
+          Inhaltshöhe überhaupt möglich).
+        */}
         <RadixDialog.Content
-          className={`fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full ${SIZE_CLASS[size]} rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95`}
+          className={`fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full ${SIZE_CLASS[size]} flex flex-col max-h-[90vh] rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95`}
         >
           {/* Header */}
-          <div className="flex items-start justify-between p-5 border-b border-[var(--color-border)]">
+          <div className="shrink-0 flex items-start justify-between p-5 border-b border-[var(--color-border)]">
             <div>
               <RadixDialog.Title className="text-base font-semibold text-[var(--color-text-primary)]">
                 {title}
@@ -49,12 +71,15 @@ export function Dialog({ open, onOpenChange, trigger, title, description, childr
             </RadixDialog.Close>
           </div>
 
-          {/* Body */}
-          <div className="p-5">{children}</div>
+          {/* Banner (z. B. Fehler) — bleibt beim Scrollen stehen */}
+          {banner && <div className="shrink-0 px-5 pt-5">{banner}</div>}
+
+          {/* Body — der einzige scrollende Bereich */}
+          <div className="min-h-0 overflow-y-auto p-5">{children}</div>
 
           {/* Footer */}
           {footer && (
-            <div className="flex items-center justify-end gap-2 px-5 pb-5">
+            <div className="shrink-0 flex items-center justify-end gap-2 px-5 pb-5">
               {footer}
             </div>
           )}

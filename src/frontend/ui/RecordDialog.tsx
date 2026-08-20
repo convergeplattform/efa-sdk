@@ -47,7 +47,7 @@ interface RecordDialogProps {
 
   /**
    * Validierungs-/Speicherfehler. Wird im Edit-/Create-Modus als lesbares
-   * `Alert`-Banner **oben im Body, außerhalb des Scrolls** gerendert — also
+   * `Alert`-Banner im **fest stehenden Banner-Slot** des Dialogs gerendert — also
    * dort sichtbar, egal wie weit unten der Submit-Button steht. Beim erneuten
    * Speichern zurücksetzen (`setError('')`), damit alte Meldungen verschwinden.
    */
@@ -123,6 +123,12 @@ export function RecordDialog({
       open={open !== null}
       onOpenChange={(o) => { if (!o) handleClose(); }}
       title={title}
+      // Banner-Slot statt Body: der Dialog-Body scrollt, ein Fehler dort würde
+      // bei langen Formularen aus dem Blick rutschen — genau dann, wenn der
+      // Nutzer unten auf „Speichern" drückt.
+      banner={mode !== 'read' && error
+        ? <Alert variant="error" onDismiss={onErrorDismiss}>{error}</Alert>
+        : undefined}
       footer={
         mode === 'read' ? (
           <>
@@ -157,9 +163,6 @@ export function RecordDialog({
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          {error && (
-            <Alert variant="error" onDismiss={onErrorDismiss}>{error}</Alert>
-          )}
           {editContent}
         </div>
       )}
