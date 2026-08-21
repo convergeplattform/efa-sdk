@@ -40,5 +40,8 @@
     "tsconfig-paths": "^4.2.0",
     "typescript": "6.0.3",
     "vitest": "^4.1.4"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true
   }
 }
