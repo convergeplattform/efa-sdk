@@ -34,7 +34,7 @@ jobs:
     steps:
       - name: Dependabot-Metadaten lesen
         id: meta
-        uses: dependabot/fetch-metadata@21025c705c08248db411dc16f3619e6b5f9ea21a # v2
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
       # github-script statt `gh` CLI: läuft auch auf dem self-hosted Runner (kein
@@ -42,7 +42,7 @@ jobs:
       # im Repo (noch) nicht erlaubt ist (dann nur eine Warnung).
       - name: Auto-merge (patch/minor) aktivieren
         if: ${{ steps.meta.outputs.update-type == 'version-update:semver-patch' || steps.meta.outputs.update-type == 'version-update:semver-minor' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
