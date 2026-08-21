@@ -39,7 +39,16 @@ concurrency:
   # workflow_call gerufenen Workflow löst github.workflow auf den Namen des
   # AUFRUFERS auf — der Publish-Lauf teilte sich sonst die Gruppe mit fremden Läufen.
   group: build-check-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # ACHTUNG, GitHub-Falle: `cancel-in-progress` mit einem Ausdruck, der zu "false"
+  # auswertet, wirkt trotzdem wie `true` — der String ist nicht leer und damit truthy
+  # (belegt: Push-Lauf da5b727 wurde abgebrochen, obwohl der Ausdruck
+  # `github.event_name == 'pull_request'` false ergab). Deshalb hier ein literales
+  # `true` statt einer Bedingung, die etwas anderes verspricht als sie tut.
+  # Das ist auch das gewünschte Verhalten: bei mehreren Pushes hintereinander zählt
+  # der neueste Stand, und der geteilte Runner wird nicht mit überholten Läufen belegt.
+  # Der Release-Pfad ist davon unberührt — der workflow_call aus publish.yml läuft
+  # auf einem Tag-Ref und damit in einer eigenen Gruppe (build-check-refs/tags/vX).
+  cancel-in-progress: true
 
 jobs:
   sdk:
