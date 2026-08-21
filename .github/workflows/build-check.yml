@@ -22,18 +22,29 @@ on:
 permissions:
   contents: read
 
+# WARUM pull_request IMMER auf ubuntu-latest läuft (und nicht auf dem self-hosted
+# Runner): efa-sdk ist PUBLIC, und der self-hosted Runner steht auf der DW-VPS neben
+# dem produktiven Stack. Ein PR führt mit `npm ci` die Lifecycle-Scripts der
+# geänderten Abhängigkeiten aus — das darf nicht auf der VPS passieren. Das betrifft
+# ausdrücklich auch Dependabot-PRs: deren Branch liegt im Repo, `head.repo.fork` ist
+# also FALSE; nur die Prüfung auf das Event selbst erwischt sie. Für public Repos
+# sind GitHub-hosted Minuten kostenlos, es entstehen dadurch keine Kosten.
+
 # Der self-hosted Runner (dw-vps-converge) ist ein einziger, geteilter Runner mit
 # belegten Queue-Zeiten von 15-21 Minuten. Überholte Läufe desselben Branches abbrechen.
 # ACHTUNG: nicht auf `workflow_call`-Läufe aus publish.yml durchschlagen lassen — die
 # laufen auf einem Tag-Ref und haben damit eine eigene concurrency-group.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Literaler Gruppenname (NICHT ${{ github.workflow }}): in einem per
+  # workflow_call gerufenen Workflow löst github.workflow auf den Namen des
+  # AUFRUFERS auf — der Publish-Lauf teilte sich sonst die Gruppe mit fremden Läufen.
+  group: build-check-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   sdk:
     name: sdk (tsc + test + lint + build)
-    runs-on: ${{ (github.event.pull_request.head.repo.fork && 'ubuntu-latest') || vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-latest' || vars.RUNNER_LABEL || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -66,7 +77,7 @@ jobs:
     # Docker-Build (`npm ci`) — genau das war der Fall (Lock pinnte @efa-one/sdk 1.10.1
     # gegen ein Manifest mit ^1.11.0 → `npm ci` EUSAGE). Dieser Job hält das Lock ehrlich.
     name: template scaffold (npm ci)
-    runs-on: ${{ (github.event.pull_request.head.repo.fork && 'ubuntu-latest') || vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-latest' || vars.RUNNER_LABEL || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:

@@ -61,7 +61,13 @@ for dir in . template/backend template/frontend; do
 
   # License-Gate gegen einen ephemeren prod-Install (wie in der CI), damit devDeps
   # das Ergebnis nicht verfälschen.
-  TMP="$(mktemp -d)"; cp "$dir"/package*.json "$TMP"/ 2>/dev/null
+  TMP="$(mktemp -d)"
+  # Ohne diese Prüfung besteht das Gate still, wenn die Kopie fehlschlägt:
+  # license-checker meldet in einem leeren Verzeichnis "No packages found" mit Exit 0.
+  if ! cp "$dir"/package.json "$TMP"/ 2>/dev/null; then
+    bad "License-Gate: package.json in $dir nicht gefunden"; rm -rf "$TMP"; continue
+  fi
+  cp "$dir"/package-lock.json "$TMP"/ 2>/dev/null || true
   if ( cd "$TMP" && npm install --omit=dev --ignore-scripts --no-audit --no-fund ) >/dev/null 2>&1; then
     if ( cd "$TMP" && npx --yes license-checker --production --failOn "$COPYLEFT" ) >/dev/null 2>&1; then
       ok "License-Gate (kein GPL/AGPL/LGPL)"

@@ -27,7 +27,10 @@ permissions:
 # dort standen zeitweise vier Jobs 15-21 Minuten in der Queue. Überholte Läufe desselben
 # Branches deshalb abbrechen, statt sie die Queue verstopfen zu lassen.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Literaler Gruppenname (NICHT ${{ github.workflow }}): in einem per
+  # workflow_call gerufenen Workflow löst github.workflow auf den Namen des
+  # AUFRUFERS auf — der Publish-Lauf teilte sich sonst die Gruppe mit fremden Läufen.
+  group: security-${{ github.ref }}
   cancel-in-progress: true
 
 # Trivy zieht seine Vuln-DB per Default vom GCR-Mirror (mirror.gcr.io/aquasec/trivy-db),
@@ -48,7 +51,7 @@ env:
 jobs:
   npm-audit:
     name: npm audit (${{ matrix.dir }})
-    runs-on: ${{ (github.event.pull_request.head.repo.fork && 'ubuntu-latest') || vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-latest' || vars.RUNNER_LABEL || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
@@ -65,7 +68,7 @@ jobs:
 
   licenses:
     name: License gate (${{ matrix.dir }})
-    runs-on: ${{ (github.event.pull_request.head.repo.fork && 'ubuntu-latest') || vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-latest' || vars.RUNNER_LABEL || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
@@ -105,7 +108,7 @@ jobs:
 
   trivy:
     name: Trivy filesystem scan
-    runs-on: ${{ (github.event.pull_request.head.repo.fork && 'ubuntu-latest') || vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-latest' || vars.RUNNER_LABEL || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v7
       # Scannt alle Lockfiles (Root + template/*) sowie die Dockerfiles des Scaffolds.
@@ -135,7 +138,7 @@ jobs:
 
   trivy-config:
     name: Trivy misconfig & secret scan (report-only)
-    runs-on: ${{ (github.event.pull_request.head.repo.fork && 'ubuntu-latest') || vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-latest' || vars.RUNNER_LABEL || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v7
       # Prüft die Scaffold-Dockerfiles auf Härtungslücken (root-User, fehlendes cap_drop,
