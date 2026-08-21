@@ -33,6 +33,9 @@ concurrency:
 # Trivy zieht seine Vuln-DB per Default vom GCR-Mirror (mirror.gcr.io/aquasec/trivy-db),
 # der zeitweise 404 liefert und den Scan-Job hart fehlschlagen lässt (kein echtes Finding,
 # reiner Infra-Flake). Auf die kanonische GHCR-Quelle zeigen — stabiler, anonym ziehbar.
+# Fremde Actions sind auf den Commit-SHA gepinnt (ein Tag ist verschiebbar — wer den
+# Tag umhängt, führt beliebigen Code in unserer CI aus). Dependabot aktualisiert
+# SHA-Pins mitsamt dem Versionskommentar, der Pin veraltet also nicht.
 env:
   TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db:2
   # Trivy überspringt in npm-Lockfiles per Default die devDependencies. Ohne diesen
@@ -108,7 +111,7 @@ jobs:
       # Scannt alle Lockfiles (Root + template/*) sowie die Dockerfiles des Scaffolds.
       # ignore-unfixed: keine Fehlschläge bei CVEs ohne verfügbaren Fix.
       - name: Trivy fs scan
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -121,7 +124,7 @@ jobs:
       # blockierende Pass macht sie sichtbar, damit „kein Fix verfügbar" nicht
       # „unsichtbar" bedeutet.
       - name: Trivy fs scan — unfixed sichtbar machen (informativ)
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -139,7 +142,7 @@ jobs:
       # ungepinnte Images) und das Repo auf versehentlich eingecheckte Secrets.
       # exit-code 0 = report-only: sichtbar machen, ohne day-1 jeden Build zu brechen.
       - name: Trivy config/secret scan
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scan-ref: .

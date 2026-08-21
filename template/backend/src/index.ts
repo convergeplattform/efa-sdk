@@ -37,7 +37,11 @@ if (corsOrigins && corsOrigins.length > 0) {
   console.warn(JSON.stringify({ level: 'warn', msg: 'CORS_ORIGINS nicht gesetzt — Cross-Origin-Credentials in Produktion deaktiviert.' }));
   corsOrigin = false;
 } else {
-  corsOrigin = true;
+  // Dev ohne CORS_ORIGINS: NUR lokale Entwicklungs-Origins spiegeln. `origin: true`
+  // würde jede beliebige Origin mit `credentials: true` zurückspiegeln — für einen
+  // Browser-Angreifer ein Freifahrtschein auf die App-Session. Wer in Dev eine andere
+  // Origin braucht (LAN-IP, Codespace), setzt CORS_ORIGINS explizit.
+  corsOrigin = [/^https?:\/\/localhost(:\d+)?$/, /^https?:\/\/127\.0\.0\.1(:\d+)?$/];
 }
 app.use(cors({ origin: corsOrigin, credentials: true }));
 app.use(express.json());

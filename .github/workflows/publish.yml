@@ -7,6 +7,11 @@ on:
     tags:
       - 'v*'
 
+# Default für ALLE Jobs (der `checks`-Aufruf erbt ihn) — der publish-Job hebt sich
+# darunter gezielt sein `id-token: write` für OIDC hoch.
+permissions:
+  contents: read
+
 jobs:
   # Vollständiger Qualitäts-Gate vor dem Publish: derselbe Workflow, der auch auf
   # Push/PR läuft (tsc + Coverage-Gate + ESLint + Build + Scaffold-`npm ci`). So kann
