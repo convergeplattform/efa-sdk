@@ -35,9 +35,51 @@ updates:
         patterns: ["eslint", "@eslint/*", "typescript-eslint", "eslint-plugin-*"]
         update-types: ["major"]
     ignore:
-      # @types/node an die Node-24-LTS-Runtime binden (nicht auf 25/26 vorziehen)
+      # ── devDeps, die nur peerDependencies SPIEGELN ───────────────────────────
+      # Diese Pakete stehen hier nicht, weil das SDK sie benutzt, sondern damit der
+      # Typecheck gegen die MINIMAL unterstützte Version läuft (peer `react >=18`,
+      # `i18next >=23`, `express >=4` …). Würden wir sie mit-anheben, prüften wir
+      # nur noch die neueste Version — und ein Bruch gegen die Untergrenze fiele
+      # erst beim Konsumenten auf. Ein Major hier ist deshalb eine bewusste
+      # Anhebung der Support-Untergrenze, kein Dependency-Update: er gehört in
+      # einen eigenen Commit samt peerDependencies-Anpassung und Major-Release,
+      # nicht in einen Bot-PR.
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "i18next"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "i18next-http-backend"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-i18next"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "express"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/express"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "pg"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/pg"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "jsonwebtoken"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/jsonwebtoken"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "lucide-react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@radix-ui/*"
+        update-types: ["version-update:semver-major"]
+      # ── Laufzeit-/Toolchain-Linien ──────────────────────────────────────────
+      # @types/node auf der Untergrenze halten: engines sagt `node >=20`. Mit
+      # neueren Typen würden Node-24-only-APIs unbemerkt durchrutschen und erst
+      # bei einem Konsumenten auf Node 20 knallen.
       - dependency-name: "@types/node"
-        versions: [">=25"]
+        versions: [">=21"]
       # TS auf der letzten JS-basierten Linie (6.0.x) halten — der native 7.0-Compiler
       # wird von typescript-eslint nicht unterstützt (Lint bricht hart ab, nicht nur
       # einzelne Regeln). Siehe CLAUDE.md „TypeScript-Version". Kein Auto-Major.
@@ -55,6 +97,13 @@ updates:
         patterns: ["*"]
         update-types: ["minor", "patch"]
     ignore:
+      # Das Scaffold spiegelt die Plattform-Linien, nicht „das Neueste": alle Apps
+      # fahren Express 4; ein Sprung auf 5 ist ein eigenes Vorhaben (Breaking) und
+      # muss zuerst im SDK (peer `express >=4`) und in den Bestands-Apps passieren.
+      - dependency-name: "express"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/express"
+        update-types: ["version-update:semver-major"]
       - dependency-name: "@types/node"
         versions: [">=25"]
       - dependency-name: "typescript"
@@ -73,6 +122,23 @@ updates:
     ignore:
       # Tailwind bleibt plattformweit v3-LTS — v4 ist Breaking (eigenes Vorhaben).
       - dependency-name: "tailwindcss"
+        update-types: ["version-update:semver-major"]
+      # React 18 ist die Plattform-Linie (SDK-peer `react >=18`, alle Apps auf 18).
+      # Ein Sprung auf 19 wird plattformweit koordiniert, nicht per Scaffold-PR.
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react-dom"
+        update-types: ["version-update:semver-major"]
+      # react-router bleibt auf v6: v7 zieht das Data-Router-Modell nach und würde
+      # den HashRouter-Deeplink-Vertrag der eingebetteten Apps berühren.
+      - dependency-name: "react-router-dom"
+        update-types: ["version-update:semver-major"]
+      # lucide-react folgt der SDK-peer-Untergrenze (>=0.400.0).
+      - dependency-name: "lucide-react"
         update-types: ["version-update:semver-major"]
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
