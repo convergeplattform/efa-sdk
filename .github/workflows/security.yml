@@ -1,0 +1,148 @@
+name: Security & License Scan
+
+# Ergänzt build-check.yml (Compile/Test/Lint) und publish.yml (nur Tag-Push) um
+# kontinuierliche Dependency-Prüfung: auf jeden Push/PR + wöchentlich.
+# Struktur folgt der kanonischen Vorlage aus apps/converge-kernel, angepasst an das
+# Single-Package-Layout des SDK.
+#
+# Gescannt werden DREI npm-Verzeichnisse:
+#   .                  → das SDK selbst (0 runtime-dependencies, alles peer/dev)
+#   template/backend   → App-Scaffold, wird von /new-app in jedes neue App-Repo kopiert
+#   template/frontend  → dito
+# Das Scaffold mitzuscannen ist Absicht: eine CVE dort vererbt sich in jede neu
+# angelegte App, und niemand sonst prüft diese Lockfiles.
+
+on:
+  push:
+    branches: [main, development]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1"   # montags 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Ein einziger, geteilter self-hosted Runner (dw-vps-converge) bedient alle Repos —
+# dort standen zeitweise vier Jobs 15-21 Minuten in der Queue. Überholte Läufe desselben
+# Branches deshalb abbrechen, statt sie die Queue verstopfen zu lassen.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Trivy zieht seine Vuln-DB per Default vom GCR-Mirror (mirror.gcr.io/aquasec/trivy-db),
+# der zeitweise 404 liefert und den Scan-Job hart fehlschlagen lässt (kein echtes Finding,
+# reiner Infra-Flake). Auf die kanonische GHCR-Quelle zeigen — stabiler, anonym ziehbar.
+env:
+  TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db:2
+  # Trivy überspringt in npm-Lockfiles per Default die devDependencies. Ohne diesen
+  # Schalter wäre der Scan hier strukturell wirkungslos: das SDK selbst hat NULL
+  # runtime-dependencies (alles peer/dev), und auch im Scaffold hängen die
+  # interessanten Funde an der Build-/Test-Toolchain. Verifiziert: ohne den Schalter
+  # taucht das Root-Lockfile nicht einmal als Scan-Target auf.
+  TRIVY_INCLUDE_DEV_DEPS: true
+
+jobs:
+  npm-audit:
+    name: npm audit (${{ matrix.dir }})
+    runs-on: ${{ (github.event.pull_request.head.repo.fork && 'ubuntu-latest') || vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        dir: ['.', template/backend, template/frontend]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      # Hard-Fail bei HIGH + CRITICAL. Verbleibende Moderate/Low stehen im BACKLOG.
+      - name: npm audit
+        working-directory: ${{ matrix.dir }}
+        run: npm audit --audit-level=high
+
+  licenses:
+    name: License gate (${{ matrix.dir }})
+    runs-on: ${{ (github.event.pull_request.head.repo.fork && 'ubuntu-latest') || vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        dir: ['.', template/backend, template/frontend]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Install (prod only, no scripts)
+        working-directory: ${{ matrix.dir }}
+        # npm install (nicht ci) — tolerant gegen Lockfile-Drift; CI-Install ist ephemer.
+        # Hinweis zum Repo-Root: @efa-one/sdk hat NULL runtime-dependencies (alles peer +
+        # dev), der prod-Install installiert dort also nichts und das Gate ist strukturell
+        # leer. Das ist korrekt und beabsichtigt — das SDK bündelt keine fremde Lizenz.
+        # Der Job bleibt trotzdem stehen: sobald jemand eine echte dependency aufnimmt,
+        # greift er ohne weiteres Zutun.
+        run: npm install --omit=dev --ignore-scripts --no-audit --no-fund
+      - name: License summary (informativ)
+        working-directory: ${{ matrix.dir }}
+        run: npx --yes license-checker --production --summary
+      # Hard-Fail nur bei echtem Copyleft (GPL/AGPL/LGPL). Permissive Lizenzen
+      # (MIT/Apache/ISC/BSD/MPL/OFL) sind erlaubt.
+      # ABWEICHUNG von der Kernel-Vorlage (bewusst): deren Liste enthält nur die
+      # modernen SPDX-IDs (`-only`/`-or-later`). Empirisch geprüft — license-checker
+      # vergleicht den gemeldeten Lizenz-String EXAKT, ein Paket mit dem verbreiteten
+      # Alt-String "GPL-3.0" rutscht dadurch glatt durch (Exit 0). Die veralteten
+      # Schreibweisen sind deshalb ergänzt. Substring-Fehlalarme gibt es nicht
+      # ("LGPL-3.0" matcht "GPL-3.0" nicht). Dual-Lizenzen wie "(MIT OR GPL-2.0)"
+      # erwischt failOn prinzipbedingt nicht — das ist akzeptiert, weil dort eine
+      # permissive Option existiert.
+      - name: Fail on copyleft
+        working-directory: ${{ matrix.dir }}
+        run: >
+          npx --yes license-checker --production
+          --failOn "GPL-1.0-only;GPL-1.0-or-later;GPL-2.0-only;GPL-2.0-or-later;GPL-3.0-only;GPL-3.0-or-later;AGPL-1.0-only;AGPL-1.0-or-later;AGPL-3.0-only;AGPL-3.0-or-later;LGPL-2.0-only;LGPL-2.1-only;LGPL-2.1-or-later;LGPL-3.0-only;LGPL-3.0-or-later;GPL-1.0;GPL-2.0;GPL-3.0;GPL-2.0+;GPL-3.0+;AGPL-1.0;AGPL-3.0;AGPL-3.0+;LGPL-2.0;LGPL-2.1;LGPL-3.0;LGPL-2.1+;LGPL-3.0+"
+
+  trivy:
+    name: Trivy filesystem scan
+    runs-on: ${{ (github.event.pull_request.head.repo.fork && 'ubuntu-latest') || vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v7
+      # Scannt alle Lockfiles (Root + template/*) sowie die Dockerfiles des Scaffolds.
+      # ignore-unfixed: keine Fehlschläge bei CVEs ohne verfügbaren Fix.
+      - name: Trivy fs scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: 1
+      # WICHTIG: Der Scan oben (ignore-unfixed) blendet CVEs ohne Fix aus — genau die
+      # Klasse, die eine EOL-Runtime/-Dependency produziert. Dieser zweite, NICHT
+      # blockierende Pass macht sie sichtbar, damit „kein Fix verfügbar" nicht
+      # „unsichtbar" bedeutet.
+      - name: Trivy fs scan — unfixed sichtbar machen (informativ)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: false
+          exit-code: 0
+
+  trivy-config:
+    name: Trivy misconfig & secret scan (report-only)
+    runs-on: ${{ (github.event.pull_request.head.repo.fork && 'ubuntu-latest') || vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v7
+      # Prüft die Scaffold-Dockerfiles auf Härtungslücken (root-User, fehlendes cap_drop,
+      # ungepinnte Images) und das Repo auf versehentlich eingecheckte Secrets.
+      # exit-code 0 = report-only: sichtbar machen, ohne day-1 jeden Build zu brechen.
+      - name: Trivy config/secret scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: misconfig,secret
+          severity: HIGH,CRITICAL
+          exit-code: 0

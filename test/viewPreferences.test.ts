@@ -16,7 +16,7 @@ function fakeResponse(init: { status?: number; ok?: boolean; json?: unknown }): 
 
 describe('createViewPreferencesClient', () => {
   it('get: baut den Standard-Endpoint mit encodetem listId + credentials', async () => {
-    const fetchImpl = vi.fn(async () => fakeResponse({ status: 200, json: { columnOrder: ['a'] } }));
+    const fetchImpl = vi.fn(async (_url: string, _init?: RequestInit) => fakeResponse({ status: 200, json: { columnOrder: ['a'] } }));
     const client = createViewPreferencesClient({ apiBase: '/apps/converge_myapp', fetchImpl: fetchImpl as unknown as typeof fetch });
 
     const res = await client.get('my.list/1');
@@ -36,7 +36,7 @@ describe('createViewPreferencesClient', () => {
   });
 
   it('put: PUT mit JSON-Body, Content-Type und credentials', async () => {
-    const fetchImpl = vi.fn(async () => fakeResponse({ status: 200 }));
+    const fetchImpl = vi.fn(async (_url: string, _init?: RequestInit) => fakeResponse({ status: 200 }));
     const client = createViewPreferencesClient({ apiBase: '', fetchImpl: fetchImpl as unknown as typeof fetch });
 
     await client.put('users.list', { sort: null });
@@ -51,7 +51,7 @@ describe('createViewPreferencesClient', () => {
   });
 
   it('reset: DELETE auf den Endpoint', async () => {
-    const fetchImpl = vi.fn(async () => fakeResponse({ status: 204 }));
+    const fetchImpl = vi.fn(async (_url: string, _init?: RequestInit) => fakeResponse({ status: 204 }));
     const client = createViewPreferencesClient({ fetchImpl: fetchImpl as unknown as typeof fetch });
 
     await client.reset('users.list');
@@ -63,7 +63,7 @@ describe('createViewPreferencesClient', () => {
 
   it('apiBase darf eine Funktion sein (Lazy-Resolve pro Request)', async () => {
     let base = '/apps/a';
-    const fetchImpl = vi.fn(async () => fakeResponse({ status: 204 }));
+    const fetchImpl = vi.fn(async (_url: string, _init?: RequestInit) => fakeResponse({ status: 204 }));
     const client = createViewPreferencesClient({ apiBase: () => base, fetchImpl: fetchImpl as unknown as typeof fetch });
 
     await client.get('l');

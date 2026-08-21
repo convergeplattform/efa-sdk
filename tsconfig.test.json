@@ -1,0 +1,19 @@
+{
+  // Typecheck-Gate für die Ränder, die die beiden Build-tsconfigs NICHT abdecken:
+  // test/ und scripts/. Vitest transpiliert Tests per esbuild OHNE Typprüfung, und
+  // ESLint läuft hier ohne type-aware Regeln — ohne diese Config wäre ein Typfehler in
+  // einem Test von keinem Gate gefangen (verifiziert: ein absichtlicher Typfehler in
+  // test/health.test.ts blieb vorher in typecheck UND test grün).
+  // Kein Emit — reine Prüfung. Modul-/JSX-Setup wie im Frontend, damit die Tests beide
+  // Seiten (CJS-Backend + ESM/React-Frontend) importieren können.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["test/**/*", "scripts/**/*", "src/**/*"]
+}

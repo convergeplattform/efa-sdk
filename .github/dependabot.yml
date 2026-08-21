@@ -1,0 +1,125 @@
+# Automatisierte Dependency-Updates (Bot öffnet PRs).
+# Ergänzt security.yml (CVE-/Lizenz-Gate): findet veraltete/EOL-Pakete strukturell,
+# statt erst dann, wenn eine CVE veröffentlicht ist.
+#
+# Layout: Single-Package-Repo. Drei npm-Verzeichnisse:
+#   /                  → das SDK selbst (nur devDependencies + peerDependencies)
+#   /template/backend  → App-Scaffold, wird von /new-app in jedes neue App-Repo kopiert
+#   /template/frontend → dito
+# Die Ordner backend/ + frontend/ im Root sind generierter tsc-Output — KEINE npm-Verzeichnisse.
+#
+# KEIN target-branch (anders als im Kernel, der auf `staging` reifen lässt): efa-sdk hat
+# keinen aktiven Integrationsbranch (`development` läuft `main` hinterher und trägt nichts
+# Eigenes), und ein Dependency-PR gegen einen toten Branch wird nie gemergt. PRs gehen
+# also gegen `main` und werden dort durch build-check.yml + security.yml abgesichert.
+#
+# Grouping: alle minor/patch-Updates pro Verzeichnis in EINEN PR → 1 PR/Woche statt vieler.
+# Major-Updates kommen als EINZELNE PRs (bewusste manuelle Review) — mit einer Ausnahme:
+# die ESLint-Familie muss gemeinsam springen (siehe Kommentar beim eslint-Major-Block).
+version: 2
+updates:
+  # --- npm: das SDK selbst ---
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      minor-and-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+      # @eslint/js@10 fordert peerOptional eslint@^10: ein Einzel-Major-PR auf eines der
+      # beiden Pakete bricht `npm ci` mit ERESOLVE und reißt damit den kompletten
+      # Lint-Gate ein. Die Familie deshalb gemeinsam anheben.
+      eslint-major:
+        patterns: ["eslint", "@eslint/*", "typescript-eslint", "eslint-plugin-*"]
+        update-types: ["major"]
+    ignore:
+      # @types/node an die Node-24-LTS-Runtime binden (nicht auf 25/26 vorziehen)
+      - dependency-name: "@types/node"
+        versions: [">=25"]
+      # TS auf der letzten JS-basierten Linie (6.0.x) halten — der native 7.0-Compiler
+      # wird von typescript-eslint nicht unterstützt (Lint bricht hart ab, nicht nur
+      # einzelne Regeln). Siehe CLAUDE.md „TypeScript-Version". Kein Auto-Major.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+
+  # --- npm: App-Scaffold Backend ---
+  - package-ecosystem: npm
+    directory: /template/backend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      minor-and-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    ignore:
+      - dependency-name: "@types/node"
+        versions: [">=25"]
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+
+  # --- npm: App-Scaffold Frontend ---
+  - package-ecosystem: npm
+    directory: /template/frontend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      minor-and-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    ignore:
+      # Tailwind bleibt plattformweit v3-LTS — v4 ist Breaking (eigenes Vorhaben).
+      - dependency-name: "tailwindcss"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+
+  # --- Docker-Base-Images der Scaffold-Dockerfiles ---
+  # `directories` (Mehrzahl) statt drei Einzelblöcke: der docker-Updater scannt NICHT
+  # rekursiv, sondern nur Dateien direkt im konfigurierten Verzeichnis. /template muss
+  # deshalb eigens genannt werden — dort liegt `Dockerfile.single` (3× FROM node:24-alpine
+  # mit Digest-Pin) für die Single-Container-Variante.
+  - package-ecosystem: docker
+    directories:
+      - /template
+      - /template/backend
+      - /template/frontend
+    schedule:
+      interval: weekly
+    groups:
+      minor-and-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    ignore:
+      # Node-Base bleibt plattformweit 24 LTS (nicht auf 25/26 vorziehen).
+      # Digest-/Security-Updates innerhalb der Linie laufen weiter.
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
+
+  # --- GitHub-Actions (checkout, setup-node, trivy-action, …) ---
+  # Wichtig hier: aquasecurity/trivy-action hat KEINEN mitwandernden Major-Tag, die
+  # Workflows pinnen deshalb exakt (@v0.36.0). Ohne diesen Block veraltet der Pin still.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # --- GitHub-Actions IM SCAFFOLD ---
+  # Nötig als eigener Block: bei `directory: /` scannt der github-actions-Updater
+  # ausschließlich das Repo-Root-.github/workflows, keine Unterverzeichnisse. Die vier
+  # Scaffold-Workflows (docker-image[.single].yml, image-scan.yml, security.yml) pinnen
+  # u. a. 3× aquasecurity/trivy-action@v0.36.0 und die docker/*-Actions — ohne diesen
+  # Block verfallen genau die Pins still, die jede neue App per /new-app erbt.
+  - package-ecosystem: github-actions
+    directory: /template/.github/workflows
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
