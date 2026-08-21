@@ -85,6 +85,43 @@ Failure policy:
 The Dockerfile sets `ENVIRONMENT=production`. The `/dev/token` route only registers
 when `ENVIRONMENT !== 'production'`. Never change this.
 
+### Tests: die mitgelieferte Basis erweitern, nicht ersetzen
+
+Das Scaffold kommt mit einer **laufenden Testsuite** — `npm test` ist ab dem ersten
+Commit grün, es gibt kein `--passWithNoTests`. Verbindlicher Standard ist die
+`TESTING.md` des Meta-Repos; hier nur, was für diese App-Vorlage gilt:
+
+| Ort | Inhalt |
+|---|---|
+| `backend/test/helpers/` | geteilte Bausteine: `sqliteDb` (echte Temp-SQLite aus `schema.sqlite.sql`), `testApp` (Express-App um einen Router) |
+| `backend/test/factories/` | typsichere Factories für Domänenobjekte |
+| `backend/src/__tests__/unit/` | reine Logik, I/O gemockt |
+| `backend/src/__tests__/routes/` | supertest gegen den echten Router-Stack |
+
+**`backend/test/**` liegt bewusst außerhalb `src/`** und ist in `tsconfig.json`
+ausgeschlossen — Testcode darf nie im `dist/` landen. Weil Vitest per esbuild
+transpiliert und dabei **nicht** typprüft, gibt es dafür `tsconfig.test.json` und
+`npm run typecheck:test`. Beides mitziehen, wenn du Testverzeichnisse verschiebst.
+
+Zwei Kommandos:
+
+```bash
+npm test              # schnell, alles gemockt — läuft im Stop-Hook und im PR-Gate
+npm run test:coverage # dieselbe Suite + Coverage-Gate (so läuft die CI)
+```
+
+**Coverage-Ratchet:** In `vitest.config.ts` steht ein globaler Floor plus Per-Datei-Gates
+auf den dicht getesteten Modulen. Wenn deine Tests die Abdeckung heben, **zieh die Werte
+nach — senke sie nie.** Neue kritische Module bekommen sofort ein eigenes Per-Datei-Gate.
+Ein Schwellen-Key, der auf keine Datei mehr passt, würde von Vitest **still ignoriert**;
+dagegen steht ein `existsSync`-Guard in der Config, der beim Laden hart abbricht.
+
+Was die mitgelieferten Tests abdecken (und warum genau das): den SQLite-Adapter
+(`dbSqlite.ts` — die Datei mit der meisten echten Logik, inkl. `$n`→`?`-Übersetzung),
+die Treiberwahl in `db.ts`, den Token-Exchange gegen eine echte SQLite und die
+Health-/OpenAPI-/Dev-Routen. Reine SDK-Fassaden (`middleware/auth.ts`, `audit.ts`)
+bekommen nur einen Export-Flächen-Test — ihr Verhalten gehört ins SDK, nicht hierher.
+
 ## Stack-Varianten: Standard (3 Container) vs. Single-Container
 
 Eine App wählt **eine** von zwei Stack-Varianten. Beide werden von der Plattform

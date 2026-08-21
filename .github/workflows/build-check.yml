@@ -76,7 +76,7 @@ jobs:
     # von Bestands-Apps als Referenz gezogen. Ein stales Lockfile bricht dort JEDEN
     # Docker-Build (`npm ci`) — genau das war der Fall (Lock pinnte @efa-one/sdk 1.10.1
     # gegen ein Manifest mit ^1.11.0 → `npm ci` EUSAGE). Dieser Job hält das Lock ehrlich.
-    name: template scaffold (npm ci)
+    name: template scaffold (ci + test + build)
     runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-latest' || vars.RUNNER_LABEL || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
@@ -90,6 +90,19 @@ jobs:
       - name: npm ci (Lockfile ↔ Manifest konsistent?)
         working-directory: ${{ matrix.dir }}
         run: npm ci
+      # Das Scaffold bringt eine echte Suite mit (backend 77 Tests / 100 %,
+      # frontend 19 Tests) — inklusive Coverage-Gate. Damit startet jede per
+      # /new-app erzeugte App mit einem grünen, wirksamen Test-Gate statt mit
+      # „No test files found".
+      - name: npm run test:coverage (Tests + Coverage-Gate des Scaffolds)
+        working-directory: ${{ matrix.dir }}
+        run: npm run test:coverage
+      # Vitest transpiliert Testcode per esbuild OHNE Typprüfung, und die
+      # Build-tsconfig schließt Tests aus — sonst wäre Testcode nirgends typgeprüft.
+      # --if-present: nur das Backend-Scaffold hat diese Config.
+      - name: Typecheck Testcode
+        working-directory: ${{ matrix.dir }}
+        run: npm run typecheck:test --if-present
       # Ein Scaffold, das nicht kompiliert, würde still ausgeliefert und erst im ersten
       # /new-app-Docker-Build knallen. backend: `tsc`, frontend: `tsc && vite build`.
       - name: npm run build (kompiliert das Scaffold?)

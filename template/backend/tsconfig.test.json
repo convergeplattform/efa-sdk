@@ -1,0 +1,15 @@
+{
+  // Typecheck für den TESTCODE. Die Basis-tsconfig.json klammert `src/__tests__`
+  // aus und kennt `test/` gar nicht — richtig so, denn Testcode darf nie ins
+  // `dist` des Prod-Images. Dadurch würde er aber auch nie typgeprüft; genau das
+  // holt diese Config nach (`npm run typecheck:test`). Vitest selbst
+  // transpiliert per esbuild und prüft keine Typen.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": ".",
+    "types": ["node"]
+  },
+  "include": ["src/**/*", "test/**/*"],
+  "exclude": ["node_modules", "dist", "coverage"]
+}

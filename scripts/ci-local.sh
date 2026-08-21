@@ -39,6 +39,16 @@ step "Scaffold (build-check.yml → template)"
 for dir in template/backend template/frontend; do
   if ( cd "$dir" && npm ci --no-audit --no-fund ) >/tmp/cil-$$.log 2>&1; then
     ok "npm ci $dir"
+    if ( cd "$dir" && npm run test:coverage ) >/tmp/cil-$$.log 2>&1; then
+      ok "npm run test:coverage $dir"
+    else
+      bad "npm run test:coverage $dir"; tail -20 /tmp/cil-$$.log | sed 's/^/      /'
+    fi
+    if ( cd "$dir" && npm run typecheck:test --if-present ) >/tmp/cil-$$.log 2>&1; then
+      ok "typecheck:test $dir"
+    else
+      bad "typecheck:test $dir"; tail -15 /tmp/cil-$$.log | sed 's/^/      /'
+    fi
     if ( cd "$dir" && npm run build ) >/tmp/cil-$$.log 2>&1; then
       ok "npm run build $dir"
     else

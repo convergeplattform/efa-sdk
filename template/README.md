@@ -62,9 +62,14 @@ Danach:
 ## Bauen & testen (ohne zusätzliches Tooling)
 
 ```bash
-# Typecheck / Unit-Tests pro Teilprojekt
-npm --prefix backend  test        # bzw. npx tsc --noEmit -p backend/tsconfig.json
+# Tests (die Vorlage bringt eine laufende Suite mit — grün ab dem ersten Commit)
+npm --prefix backend  test              # schnell, alles gemockt
+npm --prefix backend  run test:coverage # dieselbe Suite + Coverage-Gate (so läuft die CI)
 npm --prefix frontend test
+
+# Typecheck (Quellen UND Testcode — Vitest transpiliert ohne Typprüfung)
+npm --prefix backend run typecheck
+npm --prefix backend run typecheck:test
 
 # CI-Gates lokal spiegeln (npm audit + Copyleft-Lizenz-Check, optional Trivy)
 ./scripts/ci-local.sh
@@ -72,6 +77,11 @@ npm --prefix frontend test
 # App als Container starten
 docker compose up -d --build
 ```
+
+Die mitgelieferten Tests sind als **Vorlage** gedacht: `backend/test/helpers/` enthält
+die geteilten Bausteine (echte Temp-SQLite, Express-Test-App), `backend/src/__tests__/`
+die Fälle. Details und die Ratchet-Regel für die Coverage-Schwellen stehen in `CLAUDE.md`
+→ „Tests: die mitgelieferte Basis erweitern, nicht ersetzen".
 
 > **Naming:** Der mitgelieferte CI-Workflow normalisiert deinen GitHub-Repo-Namen automatisch
 > zur Image-Convention (Hyphens → Underscores). `service_key` in der OpenAPI-Spec und `SERVICE_KEY`

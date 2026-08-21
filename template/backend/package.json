@@ -6,8 +6,11 @@
     "build": "tsc",
     "start": "node dist/src/index.js",
     "dev": "ts-node -r tsconfig-paths/register src/index.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck:test": "tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@efa-one/sdk": "^1.11.0",
@@ -19,7 +22,7 @@
     "pg": "^8.13.3"
   },
   "optionalDependencies": {
-    "better-sqlite3": "^11.8.1"
+    "better-sqlite3": "^12.11.1"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",
@@ -31,6 +34,7 @@
     "@types/node": "^20.10.6",
     "@types/pg": "^8.11.11",
     "@types/supertest": "^7.2.0",
+    "@vitest/coverage-v8": "^4.1.4",
     "supertest": "^7.2.2",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
